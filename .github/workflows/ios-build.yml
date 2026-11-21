@@ -8,27 +8,25 @@ on:
       - 'src/**'
       - 'ios/**'
       - 'package.json'
-      - 'package-lock.json'
-      - '.npmrc'
+      - 'yarn.lock'
       - '.github/workflows/ios-build.yml'
 
 jobs:
   build-ios:
-    # macos-26 = Xcode 26 (iOS 26 SDK)，编译 Liquid Glass 必须；macos-15 只有 Xcode 16。
-    runs-on: macos-26
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
+          cache: 'yarn'
 
-      # 注意：本仓库用 npm（package-lock.json）装依赖，不用 yarn。
-      # 原因：yarn 1 的 yarn.lock 在这台 Linux 上无法重新生成（见 .npmrc 说明），
-      # 而 npm 的 lockfile 已由 Expo SDK 54 升级生成并验证过。
+      - name: Install yarn 1.22
+        run: npm install -g yarn@1.22.22
+
       - name: Install JS dependencies
-        run: npm ci
+        run: yarn install --frozen-lockfile
 
       - name: Install CocoaPods
         run: |
@@ -50,35 +48,3 @@ jobs:
           name: MusicFree-unsigned-ipa
           path: ios/MusicFree-unsigned.ipa
           retention-days: 14
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
