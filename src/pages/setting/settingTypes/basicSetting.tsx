@@ -114,9 +114,6 @@ export default function BasicSetting() {
     const clickMusicInSearch = useAppConfig("basic.clickMusicInSearch");
     const clickMusicInAlbum = useAppConfig("basic.clickMusicInAlbum");
     const downloadPath = useAppConfig("basic.downloadPath");
-    const notInterrupt = useAppConfig("basic.notInterrupt");
-    const tempRemoteDuck = useAppConfig("basic.tempRemoteDuck");
-    const tempRemoteDuckVolume = useAppConfig("basic.tempRemoteDuckVolume");
     const autoStopWhenError = useAppConfig("basic.autoStopWhenError");
     const maxCacheSize = useAppConfig("basic.maxCacheSize");
     const defaultPlayQuality = useAppConfig("basic.defaultPlayQuality");
@@ -276,11 +273,6 @@ export default function BasicSetting() {
             title: t("basicSettings.playback"),
             data: [
                 createSwitch(
-                    t("basicSettings.notInterrupt"),
-                    "basic.notInterrupt",
-                    notInterrupt ?? false,
-                ),
-                createSwitch(
                     t("basicSettings.autoPlayWhenAppStart"),
                     "basic.autoPlayWhenAppStart",
                     autoPlayWhenAppStart ?? false,
@@ -295,29 +287,9 @@ export default function BasicSetting() {
                     "basic.autoStopWhenError",
                     autoStopWhenError ?? false,
                 ),
-                createRadio(
-                    t("basicSettings.tempRemoteDuck"),
-                    "basic.tempRemoteDuck",
-                    ["pause", "lowerVolume"],
-                    tempRemoteDuck ?? "pause",
-                    {
-                        pause: t("basicSettings.tempRemoteDuck.pause"),
-                        "lowerVolume": t("basicSettings.tempRemoteDuck.lowerVolume"),
-                    }
-                ),
-                ...(tempRemoteDuck === "lowerVolume" ? [
-                    createRadio(
-                        t("basicSettings.tempRemoteDuck.volumeDecreaseLevel"),
-                        "basic.tempRemoteDuckVolume",
-                        [0.3, 0.5, 0.8],
-                        tempRemoteDuckVolume ?? 0.5,
-                        {
-                            0.3: "30%",
-                            0.5: "50%",
-                            0.8: "80%",
-                        }
-                    ),
-                ] : []),
+                // @rntp/player v5 没有 RemoteDuck：basic.notInterrupt / basic.tempRemoteDuck /
+                // basic.tempRemoteDuckVolume 三项设置已无作用，故从设置页隐藏（配置键与翻译键保留，
+                // 老用户数据不受影响，系统打断时由原生自动处理：暂停播放）。
                 createRadio(
                     t("basicSettings.defaultPlayQuality"),
                     "basic.defaultPlayQuality",
