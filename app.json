@@ -2,6 +2,11 @@
   "name": "MusicFree",
   "displayName": "MusicFree",
   "ios": {
-    "bundleIdentifier": "com.anonymous.musicfree"
+    "bundleIdentifier": "com.anonymous.musicfree",
+    "infoPlist": {
+      "UIBackgroundModes": [
+        "audio"
+      ]
+    }
   }
 }

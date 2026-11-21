@@ -8,25 +8,22 @@ on:
       - 'src/**'
       - 'ios/**'
       - 'package.json'
-      - 'yarn.lock'
+      - 'package-lock.json'
       - '.github/workflows/ios-build.yml'
 
 jobs:
   build-ios:
-    runs-on: macos-15
+    runs-on: macos-26
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'yarn'
-
-      - name: Install yarn 1.22
-        run: npm install -g yarn@1.22.22
+          node-version: '22'
+          cache: 'npm'
 
       - name: Install JS dependencies
-        run: yarn install --frozen-lockfile
+        run: npm ci
 
       - name: Copy Live Activity module into widget-extension pod
         run: |
