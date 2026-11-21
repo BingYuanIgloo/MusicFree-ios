@@ -44,9 +44,16 @@ async function resume(
     }
 
     const { plugins, musicSheets } = obj ?? {};
-    /** 恢复插件 */
+    /** 恢复插件：逐个串行安装。
+     * 之前是并发 + Promise.all：installPluginFromUrl 内部先快照插件列表、再整体写回，
+     * 两个安装重叠时后写回的会丢掉先装好的插件，导致导入静默缺失。 */
     const validPlugins = PluginManager.getEnabledPlugins();
-    const resumePlugins = plugins?.map(_ => {
+    const resumeResults: Array<{
+        srcUrl: string;
+        success: boolean;
+        message?: string;
+    }> = [];
+    for (const _ of plugins ?? []) {
         // 校验是否安装过: 同源且本地版本更高就忽略掉
         if (
             validPlugins.find(
@@ -59,15 +66,35 @@ async function resume(
                     ),
             )
         ) {
-            return;
+            continue;
         }
-        return PluginManager.installPluginFromUrl(_.srcUrl);
-    });
+        try {
+            const result = await PluginManager.installPluginFromUrl(_.srcUrl);
+            resumeResults.push({
+                srcUrl: _.srcUrl,
+                success: result.success,
+                message: result.message,
+            });
+        } catch (e: any) {
+            resumeResults.push({
+                srcUrl: _.srcUrl,
+                success: false,
+                message: e?.message ?? String(e),
+            });
+        }
+    }
+    const failedPlugins = resumeResults.filter(r => !r.success);
+    if (failedPlugins.length > 0) {
+        console.warn(
+            "[备份恢复] 以下插件安装失败：",
+            failedPlugins.map(f => `${f.srcUrl} (${f.message ?? "未知错误"})`),
+        );
+    }
 
     /** 恢复歌单 */
-    const resumeMusicSheets = MusicSheet.resumeSheets(musicSheets, resumeMode);
+    const resumeMusicSheets = await MusicSheet.resumeSheets(musicSheets, resumeMode);
 
-    return Promise.all([...(resumePlugins ?? []), resumeMusicSheets]);
+    return [...resumeResults, resumeMusicSheets];
 }
 
 const Backup = {
