@@ -159,23 +159,25 @@ function HomeDrawer(props: any) {
                         </ListItem.ListItemText>
                     </ListItem>
 
-                    <ListItem
-                        withHorizontalPadding
-                        key={"update"}
-                        onPress={() => {
-                            checkUpdateAndShowResult(true);
-                        }}>
-                        <ListItem.ListItemIcon
-                            icon={"arrow-path"}
-                            width={rpx(48)}
-                        />
-                        <ListItem.Content title={t("sidebar.checkUpdate")} />
-                        <ListItem.ListItemText
-                            position="right"
-                            fontSize="subTitle">
-                            {`${t("sidebar.currentVersion")}${deviceInfoModule.getVersion()}`}
-                        </ListItem.ListItemText>
-                    </ListItem>
+                    {Platform.OS !== "ios" && (
+                        <ListItem
+                            withHorizontalPadding
+                            key={"update"}
+                            onPress={() => {
+                                checkUpdateAndShowResult(true);
+                            }}>
+                            <ListItem.ListItemIcon
+                                icon={"arrow-path"}
+                                width={rpx(48)}
+                            />
+                            <ListItem.Content title={t("sidebar.checkUpdate")} />
+                            <ListItem.ListItemText
+                                position="right"
+                                fontSize="subTitle">
+                                {`${t("sidebar.currentVersion")}${deviceInfoModule.getVersion()}`}
+                            </ListItem.ListItemText>
+                        </ListItem>
+                    )}
                     <ListItem
                         withHorizontalPadding
                         key={"about"}
