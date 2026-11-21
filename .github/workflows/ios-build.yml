@@ -23,7 +23,10 @@ jobs:
           cache: 'npm'
 
       - name: Install JS dependencies
-        run: npm ci
+        # --legacy-peer-deps：部分旧包（如 react-native-fast-image 8.6.3）的 peer 声明
+        # 还停在 react ^17 || ^18，项目已是 react 19.3.0，严格 npm ci 会 ERESOLVE。
+        # 这些包在 RN 19 下实测可用，只是 peer 范围没跟上；Expo 官方升级同样用此开关。
+        run: npm ci --legacy-peer-deps
 
       - name: Copy Live Activity module into widget-extension pod
         run: |
