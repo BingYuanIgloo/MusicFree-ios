@@ -23,7 +23,6 @@ import Animated, {
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { panelInfoStore } from "../usePanel";
-import GlassSurface from "@/components/base/glassSurface";
 
 const ANIMATION_EASING: EasingFunction = Easing.out(Easing.exp);
 const ANIMATION_DURATION = 250;
@@ -170,19 +169,11 @@ export default function (props: IPanelBaseProps) {
                     bottom: positionMethod === "bottom" ? 0 : undefined,
                     height: height,
                 },
+                {
+                    backgroundColor: colors.backdrop,
+                },
                 panelAnimated,
             ]}>
-            {/* 弹窗底：真玻璃，折射背后列表；玻璃不可用时回到原来的实色底。 */}
-            <GlassSurface
-                style={[
-                    StyleSheet.absoluteFill,
-                    {
-                        borderTopLeftRadius: rpx(28),
-                        borderTopRightRadius: rpx(28),
-                    },
-                ]}
-                fallbackColor={colors.backdrop}
-            />
             {renderBody(loading)}
         </Animated.View>
     );
