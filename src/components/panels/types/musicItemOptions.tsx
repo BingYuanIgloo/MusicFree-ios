@@ -10,7 +10,11 @@ import { getMediaUniqueKey } from "@/utils/mediaUtils";
 import FastImage from "@/components/base/fastImage";
 import Toast from "@/utils/toast";
 import LocalMusicSheet from "@/core/localMusicSheet";
-import { localMusicSheetId, musicHistorySheetId } from "@/constants/commonConst";
+import {
+    internalSerializeKey,
+    localMusicSheetId,
+    musicHistorySheetId,
+} from "@/constants/commonConst";
 import { ROUTE_PATH } from "@/core/router";
 
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -31,6 +35,8 @@ import { getMediaExtraProperty } from "@/utils/mediaExtra";
 import lyricManager from "@/core/lyricManager";
 import { useI18N } from "@/core/i18n";
 import pluginManager from "@/core/pluginManager";
+import Share from "react-native-share";
+import { Platform } from "react-native";
 
 interface IMusicItemOptionsProps {
     /** 歌曲信息 */
@@ -136,6 +142,31 @@ export default function MusicItemOptions(props: IMusicItemOptionsProps) {
             icon: "check-circle-outline",
             title: t("panel.musicItemOptions.downloaded"),
             show: !!downloaded,
+        },
+        {
+            icon: "share",
+            title: t("panel.musicItemOptions.shareFile"),
+            show: !!downloaded && Platform.OS === "ios",
+            onPress: async () => {
+                const localPath =
+                    getMediaExtraProperty(musicItem, "localPath") ??
+                    (musicItem as any)?.[internalSerializeKey]?.localPath;
+                if (!localPath) {
+                    Toast.warn(t("toast.shareFailed"));
+                    return;
+                }
+                hidePanel();
+                try {
+                    await Share.open({ url: localPath });
+                } catch (e: any) {
+                    // 用户取消分享时不提示
+                    if (
+                        !`${e?.message ?? ""}`.includes("did not share")
+                    ) {
+                        Toast.warn(t("toast.shareFailed"));
+                    }
+                }
+            },
         },
         {
             icon: "trash-outline",
