@@ -46,29 +46,31 @@ async function bootstrapImpl() {
         )
         .catch(console.warn); // it's good to explicitly catch and inspect any error
     const logger = perfLogger();
-    // 1. 检查权限
-    if (Platform.OS === "android" && Platform.Version >= 30) {
-        const hasPermission = await NativeUtils.checkStoragePermission();
-        if (
-            !hasPermission &&
-            !PersistStatus.get("app.skipBootstrapStorageDialog")
-        ) {
-            showDialog("CheckStorage");
-        }
-    } else {
-        const [readStoragePermission, writeStoragePermission] =
-            await Promise.all([
-                check(PERMISSIONS.ANDROID.READ_EXTERNAL_STORAGE),
-                check(PERMISSIONS.ANDROID.WRITE_EXTERNAL_STORAGE),
-            ]);
-        if (
-            !(
-                readStoragePermission === "granted" &&
-                writeStoragePermission === "granted"
-            )
-        ) {
-            await request(PERMISSIONS.ANDROID.READ_EXTERNAL_STORAGE);
-            await request(PERMISSIONS.ANDROID.WRITE_EXTERNAL_STORAGE);
+    // 1. 检查权限（仅 Android 需要读写存储权限；iOS 为沙盒，无需申请）
+    if (Platform.OS === "android") {
+        if (Platform.Version >= 30) {
+            const hasPermission = await NativeUtils.checkStoragePermission();
+            if (
+                !hasPermission &&
+                !PersistStatus.get("app.skipBootstrapStorageDialog")
+            ) {
+                showDialog("CheckStorage");
+            }
+        } else {
+            const [readStoragePermission, writeStoragePermission] =
+                await Promise.all([
+                    check(PERMISSIONS.ANDROID.READ_EXTERNAL_STORAGE),
+                    check(PERMISSIONS.ANDROID.WRITE_EXTERNAL_STORAGE),
+                ]);
+            if (
+                !(
+                    readStoragePermission === "granted" &&
+                    writeStoragePermission === "granted"
+                )
+            ) {
+                await request(PERMISSIONS.ANDROID.READ_EXTERNAL_STORAGE);
+                await request(PERMISSIONS.ANDROID.WRITE_EXTERNAL_STORAGE);
+            }
         }
     }
     logger.mark("权限检查完成");
@@ -163,7 +165,8 @@ export async function initTrackPlayer(logger?: IPerfLogger) {
     }
     logger?.mark("加载播放器");
 
-    const capabilities = Config.getConfig("basic.showExitOnNotification")
+    // iOS 没有可关闭的媒体通知，Capability.Stop 无对应系统按钮
+    const capabilities = Platform.OS === "android" && Config.getConfig("basic.showExitOnNotification")
         ? [
             Capability.Play,
             Capability.Pause,
