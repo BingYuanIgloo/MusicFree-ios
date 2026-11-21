@@ -45,6 +45,14 @@ export default function Pages() {
                                 headerShown: false,
                                 animation: "slide_from_right",
                                 animationDuration: 100,
+                                // 闪屏缓解：默认主题下给每个页面一个不透明底色，避免切换动画时旧页面内容透出来。
+                                // 自定义主题有背景图时保持透明，不遮住背景图。
+                                contentStyle: theme.id.startsWith("p-")
+                                    ? {
+                                          backgroundColor:
+                                              theme.colors.pageBackground,
+                                      }
+                                    : undefined,
                             }}>
                             {routes.map(route => (
                                 <Stack.Screen
