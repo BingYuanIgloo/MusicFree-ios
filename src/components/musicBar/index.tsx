@@ -11,7 +11,6 @@ import TrackPlayer, { useCurrentMusic, useMusicState, useProgress } from "@/core
 import { musicIsPaused } from "@/utils/trackUtils";
 import MusicInfo from "./musicInfo";
 import Icon from "@/components/base/icon.tsx";
-import GlassSurface from "@/components/base/glassSurface";
 
 function CircularPlayBtn() {
     const progress = useProgress();
@@ -81,20 +80,20 @@ function MusicBar() {
     return (
         <>
             {musicItem && !showKeyboard && (
-                <GlassSurface
+                <View
                     style={[
                         style.wrapper,
                         {
+                            backgroundColor: colors.musicBar,
                             paddingRight: safeAreaInsets.right + rpx(24),
                         },
                     ]}
-                    // 玻璃不可用时回到原来的实色底（iOS < 26 / 旧包）。
-                    fallbackColor={colors.musicBar}
                     accessible
-                    accessibilityLabel={`歌曲: ${musicItem.title} 歌手: ${musicItem.artist}`}>
-                    {/* onPress={() => {
-                        navigate(ROUTE_PATH.MUSIC_DETAIL);
-                    }} */}
+                    accessibilityLabel={`歌曲: ${musicItem.title} 歌手: ${musicItem.artist}`}
+                    // onPress={() => {
+                    //     navigate(ROUTE_PATH.MUSIC_DETAIL);
+                    // }}
+                >
                     <MusicInfo musicItem={musicItem} />
                     <View style={style.actionGroup}>
                         <CircularPlayBtn />
@@ -110,7 +109,7 @@ function MusicBar() {
                             style={[style.actionIcon]}
                         />
                     </View>
-                </GlassSurface>
+                </View>
             )}
         </>
     );
