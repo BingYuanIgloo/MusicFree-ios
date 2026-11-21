@@ -1,7 +1,6 @@
 import "react-native-get-random-values";
 
 import { getCurrentDialog, showDialog } from "@/components/dialogs/useDialog.ts";
-import { ImgAsset } from "@/constants/assetsConst";
 import { emptyFunction, localPluginHash, supportLocalMediaType } from "@/constants/commonConst";
 import pathConst from "@/constants/pathConst";
 import Config from "@/core/appConfig";
@@ -22,7 +21,7 @@ import Toast from "@/utils/toast";
 import * as SplashScreen from "expo-splash-screen";
 import {  Linking, Platform } from "react-native";
 import { PERMISSIONS, check, request } from "react-native-permissions";
-import RNTrackPlayer, { AppKilledPlaybackBehavior, Capability } from "react-native-track-player";
+import RNTrackPlayer, { PlayerCommand } from "@rntp/player";
 import i18n from "@/core/i18n";
 import bootstrapAtom from "./bootstrap.atom";
 import { getDefaultStore } from "jotai";
@@ -150,47 +149,46 @@ async function setupFolder() {
 }
 
 export async function initTrackPlayer(logger?: IPerfLogger) {
-    try {
-        await RNTrackPlayer.setupPlayer({
-            maxCacheSize:
+    // v5：setupPlayer 是同步的，且重复调用会被忽略（只打一条开发警告，
+    // 不抛错），所以不需要再捕捉“已初始化”的文案。
+    // 缓存大小从 v4 的顶层 maxCacheSize 改成 cache.maxSizeBytes；
+    // App 被从最近任务划掉后继续播放（v4 的
+    // AppKilledPlaybackBehavior.ContinuePlayback；v5 里默认值就是
+    // 'continue'，这里显式写出以保留原意）。
+    RNTrackPlayer.setupPlayer({
+        cache: {
+            maxSizeBytes:
                 Config.getConfig("basic.maxCacheSize") ?? 1024 * 1024 * 512,
-        });
-    } catch (e: any) {
-        if (
-            e?.message !==
-            "The player has already been initialized via setupPlayer."
-        ) {
-            throw e;
-        }
-    }
+        },
+        android: {
+            taskRemovedBehavior: "continue",
+        },
+    });
     logger?.mark("加载播放器");
 
-    // iOS 没有可关闭的媒体通知，Capability.Stop 无对应系统按钮
+    // v5：updateOptions 改名 setCommands，只剩一个 capabilities 列表
+    // （compact / notification 两个列表取消了；Seek 从 notificationCapabilities
+    // 并进来，保留通知栏进度条）。
+    // 删掉的项：icon（v5 不再支持自定义通知图标）、progressUpdateEventInterval
+    // （v5 没有原生进度间隔配置，进度靠轮询）、android.alwaysPauseOnInterruption
+    // （Media3 原生处理音频焦点，无等价配置）。
+    // iOS 没有可关闭的媒体通知，PlayerCommand.Stop 无对应系统按钮。
     const capabilities = Platform.OS === "android" && Config.getConfig("basic.showExitOnNotification")
         ? [
-            Capability.Play,
-            Capability.Pause,
-            Capability.SkipToNext,
-            Capability.SkipToPrevious,
-            Capability.Stop,
+            PlayerCommand.PlayPause,
+            PlayerCommand.Next,
+            PlayerCommand.Previous,
+            PlayerCommand.Stop,
+            PlayerCommand.Seek,
         ]
         : [
-            Capability.Play,
-            Capability.Pause,
-            Capability.SkipToNext,
-            Capability.SkipToPrevious,
+            PlayerCommand.PlayPause,
+            PlayerCommand.Next,
+            PlayerCommand.Previous,
+            PlayerCommand.Seek,
         ];
-    await RNTrackPlayer.updateOptions({
-        icon: ImgAsset.logoTransparent,
-        progressUpdateEventInterval: 1,
-        android: {
-            alwaysPauseOnInterruption: true,
-            appKilledPlaybackBehavior:
-                AppKilledPlaybackBehavior.ContinuePlayback,
-        },
-        capabilities: capabilities,
-        compactCapabilities: capabilities,
-        notificationCapabilities: [...capabilities, Capability.SeekTo],
+    RNTrackPlayer.setCommands({
+        capabilities,
     });
     logger?.mark("播放器初始化完成");
     trace("播放器初始化完成");
