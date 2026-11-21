@@ -11,9 +11,10 @@ import { useParams } from "@/core/router";
 import useColors from "@/hooks/useColors";
 import useHardwareBack from "@/hooks/useHardwareBack";
 import rpx from "@/utils/rpx";
+import { formatDisplayPath } from "@/utils/fileUtils";
 import { useNavigation } from "@react-navigation/native";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Pressable, StyleSheet, View } from "react-native";
+import { Platform, Pressable, StyleSheet, View } from "react-native";
 import {
     DocumentDirectoryPath,
     exists,
@@ -45,7 +46,8 @@ export default function FileSelector() {
     } = useParams<"file-selector">() ?? {};
 
     const [currentPath, setCurrentPath] = useState<IPathItem>({
-        path: "/",
+        // iOS 没有外部存储根目录，直接从应用 Documents 文件夹开始
+        path: Platform.OS === "ios" ? DocumentDirectoryPath : "/",
         parent: null,
     });
     const currentPathRef = useRef<IPathItem>(currentPath);
@@ -242,9 +244,18 @@ export default function FileSelector() {
                     ellipsizeMode="head"
                     fontColor={"appBarText"}
                     style={style.headerPath}>
-                    {currentPath.path}
+                    {Platform.OS === "ios"
+                        ? formatDisplayPath(currentPath.path)
+                        : currentPath.path}
                 </ThemeText>
             </View>
+            {Platform.OS === "ios" && (
+                <View style={style.iosHint}>
+                    <ThemeText fontSize="description" fontColor="textSecondary">
+                        {i18n.t("fileSelector.iosDocumentsOnly")}
+                    </ThemeText>
+                </View>
+            )}
             {loading ? (
                 <Loading />
             ) : (
@@ -309,6 +320,11 @@ const style = StyleSheet.create({
         height: rpx(120),
         alignItems: "center",
         justifyContent: "center",
+    },
+    iosHint: {
+        width: "100%",
+        paddingHorizontal: rpx(24),
+        paddingVertical: rpx(12),
     },
     selectAll: {
         width: "100%",
