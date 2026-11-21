@@ -10,7 +10,7 @@ import LyricUtil from "@/native/lyricUtil";
 import NativeUtils from "@/native/utils";
 import rpx from "@/utils/rpx";
 import React, { useEffect, useRef, useState } from "react";
-import { AppState, StyleSheet } from "react-native";
+import { AppState, Platform, StyleSheet } from "react-native";
 
 type IPermissionTypes = "floatingWindow" | "fileStorage";
 
@@ -26,17 +26,35 @@ export default function Permissions() {
     const { t } = useI18N();
 
     async function checkPermission(type?: IPermissionTypes) {
+        // iOS 没有悬浮窗/存储读写权限：两项均为不适用，直接返回关闭状态
+        if (Platform.OS === "ios") {
+            setPermissions({
+                floatingWindow: false,
+                fileStorage: false,
+            });
+            return;
+        }
         let newPermission = {
             ...permissions,
         };
         if (!type || type === "floatingWindow") {
-            const hasPermission = await LyricUtil.checkSystemAlertPermission();
-            newPermission.floatingWindow = hasPermission;
+            try {
+                const hasPermission =
+                    await LyricUtil.checkSystemAlertPermission?.();
+                newPermission.floatingWindow = hasPermission ?? false;
+            } catch {
+                newPermission.floatingWindow = false;
+            }
         }
         if (!type || type === "fileStorage") {
-            const hasPermission = await NativeUtils.checkStoragePermission();
-            console.log("HAS", hasPermission);
-            newPermission.fileStorage = hasPermission;
+            try {
+                const hasPermission =
+                    await NativeUtils?.checkStoragePermission?.();
+                console.log("HAS", hasPermission);
+                newPermission.fileStorage = hasPermission ?? false;
+            } catch {
+                newPermission.fileStorage = false;
+            }
         }
         // if (!type || type === 'background') {
 
@@ -77,7 +95,7 @@ export default function Permissions() {
                 withHorizontalPadding
                 heightType="big"
                 onPress={() => {
-                    LyricUtil.requestSystemAlertPermission();
+                    LyricUtil.requestSystemAlertPermission?.();
                 }}>
                 <ListItem.Content
                     title={t("permissionSetting.floatWindowPermission")}
@@ -89,7 +107,7 @@ export default function Permissions() {
                 withHorizontalPadding
                 heightType="big"
                 onPress={() => {
-                    NativeUtils.requestStoragePermission();
+                    NativeUtils?.requestStoragePermission?.();
                 }}>
                 <ListItem.Content
                     title={t("permissionSetting.fileReadWritePermission")}
