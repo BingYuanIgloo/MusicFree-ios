@@ -1,6 +1,7 @@
 import React from "react";
 import {
     Image,
+    Platform,
     ScrollView,
     StyleSheet,
     TouchableOpacity,
@@ -35,6 +36,10 @@ export default function AboutSetting() {
                 ]}>
                 <TouchableOpacity
                     onPress={() => {
+                        // iOS 没有 APK 更新通道，不触发检查
+                        if (Platform.OS === "ios") {
+                            return;
+                        }
                         checkAndShowResult(true);
                     }}>
                     <Image
