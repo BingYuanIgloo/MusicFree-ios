@@ -16,7 +16,6 @@ import { iconSizeConst } from "@/constants/uiConst";
 import Config from "@/core/appConfig";
 import lyricManager from "@/core/lyricManager";
 import mediaCache from "@/core/mediaCache";
-import LyricUtil from "@/native/lyricUtil";
 import { getDocumentAsync } from "expo-document-picker";
 import { readAsStringAsync } from "expo-file-system";
 import { FlatList } from "react-native-gesture-handler";
@@ -97,36 +96,19 @@ export default function MusicItemLyricOptions(
                     : t("panel.musicItemLyricOptions.enableDesktopLyric"),
             }),
             async onPress() {
-                const showStatusBarLyric = Config.getConfig("lyric.showStatusBarLyric");
-                if (!showStatusBarLyric) {
-                    const hasPermission =
-                        await LyricUtil.checkSystemAlertPermission();
-
-                    if (hasPermission) {
-                        const statusBarLyricConfig = {
-                            topPercent: Config.getConfig("lyric.topPercent"),
-                            leftPercent: Config.getConfig("lyric.leftPercent"),
-                            align: Config.getConfig("lyric.align"),
-                            color: Config.getConfig("lyric.color"),
-                            backgroundColor: Config.getConfig("lyric.backgroundColor"),
-                            widthPercent: Config.getConfig("lyric.widthPercent"),
-                            fontSize: Config.getConfig("lyric.fontSize"),
-                        };
-                        LyricUtil.showStatusBarLyric(
-                            "MusicFree",
-                            statusBarLyricConfig ?? {}
-                        );
-                        Config.setConfig("lyric.showStatusBarLyric", true);
-                    } else {
-                        LyricUtil.requestSystemAlertPermission().finally(() => {
-                            Toast.warn(t("panel.musicItemLyricOptions.desktopLyricPermissionError"));
-                        });
+                try {
+                    const showStatusBarLyric = Config.getConfig("lyric.showStatusBarLyric");
+                    Config.setConfig("lyric.showStatusBarLyric", !showStatusBarLyric);
+                    // 立即同步灵动岛，不用等下一行歌词才生效。
+                    lyricManager.syncLiveActivity();
+                    if (!showStatusBarLyric) {
+                        Toast.success(t("basicSettings.lyric.liveActivityEnabledHint"));
                     }
-                } else {
-                    LyricUtil.hideStatusBarLyric();
-                    Config.setConfig("lyric.showStatusBarLyric", false);
+                } catch {
+                    Toast.warn(t("panel.musicItemLyricOptions.desktopLyricPermissionError"));
+                } finally {
+                    hidePanel();
                 }
-                hidePanel();
             },
         },
         {

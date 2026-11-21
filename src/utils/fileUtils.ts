@@ -1,6 +1,8 @@
 import pathConst from "@/constants/pathConst";
 import FastImage from "react-native-fast-image";
 import RNFS, {
+    CachesDirectoryPath,
+    DocumentDirectoryPath,
     PicturesDirectoryPath,
     copyFile,
     downloadFile,
@@ -10,6 +12,7 @@ import RNFS, {
     unlink,
     writeFile,
 } from "react-native-fs";
+import { Linking } from "react-native";
 import { errorLog } from "./log";
 import path from "path-browserify";
 import resolveAssetSource from "react-native/Libraries/Image/resolveAssetSource";
@@ -151,6 +154,44 @@ export function getDirectory(dirPath: string) {
         return dirPath;
     }
     return dirPath.slice(0, lastSlash);
+}
+
+/**
+ * 把沙盒内的绝对路径显示成用户能看懂的样子。
+ * iOS 上应用的真实路径是 /var/mobile/Containers/Data/Application/<UUID>/Documents/...
+ * 用户看不懂，也没必要看 —— 只显示 Documents 之后的部分。
+ */
+export function formatDisplayPath(fullPath: string): string {
+    if (!fullPath) {
+        return fullPath;
+    }
+    if (fullPath.startsWith(DocumentDirectoryPath)) {
+        const rel = fullPath
+            .slice(DocumentDirectoryPath.length)
+            .replace(/^\/+/, "");
+        return rel ? `Documents/${rel}` : "Documents";
+    }
+    if (fullPath.startsWith(CachesDirectoryPath)) {
+        const rel = fullPath
+            .slice(CachesDirectoryPath.length)
+            .replace(/^\/+/, "");
+        return rel ? `Caches/${rel}` : "Caches";
+    }
+    return fullPath;
+}
+
+/**
+ * 在系统“文件”App 中打开本应用的 Documents 文件夹。
+ * 需要 Info.plist 里打开 UIFileSharingEnabled（已打开）。
+ * 成功返回 true；打不开（例如非 iOS）返回 false。
+ */
+export async function openInFilesApp(): Promise<boolean> {
+    try {
+        await Linking.openURL("shareddocuments://");
+        return true;
+    } catch {
+        return false;
+    }
 }
 
 export function getFileName(filePath: string, withoutExt?: boolean) {

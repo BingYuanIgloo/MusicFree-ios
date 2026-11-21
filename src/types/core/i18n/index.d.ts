@@ -84,6 +84,9 @@ export interface ILanguageData {
     "toast.hasStarred": string; // 已收藏歌单
     "toast.hasUnstarred": string; // 已取消收藏歌单
     "toast.importSuccess": string; // 导入成功
+    "toast.importFailed": string; // 导入失败
+    "toast.cannotOpenFilesApp": string; // 无法打开‘文件’App
+    "toast.shareFailed": string; // 分享失败
     "toast.saveSuccess": string; // 保存成功
     "toast.sortHasBeenUpdated": string; // 排序已更新
     "toast.currentQualityNotAvailableForCurrentMusic": string; // 当前音乐的质量在此设备上不可用
@@ -96,6 +99,7 @@ export interface ILanguageData {
     "localMusic.scanLocalMusic": string; // 扫描本地音乐
     "localMusic.beginScan": string; // 开始扫描
     "localMusic.downloadList": string; // 下载列表
+    "localMusic.importAudioFiles": string; // 导入音频文件
 
     // 歌词相关
     "lyric.lyricLinkedFrom": string; // 歌词来自
@@ -325,7 +329,9 @@ export interface ILanguageData {
     
     "basicSettings.download": string; // 下载
     "basicSettings.downloadPath": string; // 下载路径
+    "basicSettings.openInFilesApp": string; // 在‘文件’App 中打开
     "basicSettings.fileSelector.selectFolder": string; // 选择文件夹
+    "fileSelector.iosDocumentsOnly": string; // iOS 仅可浏览应用 Documents 文件夹
     "basicSettings.maxDownload": string; // 最大同时下载数目
     "basicSettings.defaultDownloadQuality": string; // 默认下载音质
     "basicSettings.downloadQualityOrder": string; // 默认下载音质缺失时
@@ -338,7 +344,8 @@ export interface ILanguageData {
     
     "basicSettings.lyric": string; // 歌词
     "basicSettings.lyric.autoSearchLyric": string; // 歌词缺失时自动搜索歌词
-    "basicSettings.lyric.showStatusBarLyric": string; // 开启桌面歌词
+    "basicSettings.lyric.showStatusBarLyric": string; // 灵动岛歌词
+    "basicSettings.lyric.liveActivityEnabledHint": string; // 灵动岛歌词开启提示
     "basicSettings.lyric.align": string; // 对齐方式
     "basicSettings.lyric.align.left": string; // 左对齐
     "basicSettings.lyric.align.center": string; // 居中对齐
@@ -464,10 +471,10 @@ export interface ILanguageData {
     // 面板相关 - 音乐项歌词选项
     "panel.musicItemLyricOptions.author": string; // 作者
     "panel.musicItemLyricOptions.album": string; // 专辑
-    "panel.musicItemLyricOptions.toggleDesktopLyric": string; // 桌面歌词开关
+    "panel.musicItemLyricOptions.toggleDesktopLyric": string; // 灵动岛歌词开关
     "panel.musicItemLyricOptions.enableDesktopLyric": string; // 开启
     "panel.musicItemLyricOptions.disableDesktopLyric": string; // 关闭
-    "panel.musicItemLyricOptions.desktopLyricPermissionError": string; // 桌面歌词权限错误
+    "panel.musicItemLyricOptions.desktopLyricPermissionError": string; // 灵动岛歌词开启失败
     "panel.musicItemLyricOptions.uploadLocalLyric": string; // 上传本地歌词
     "panel.musicItemLyricOptions.uploadLocalLyricTranslation": string; // 上传本地歌词翻译
     "panel.musicItemLyricOptions.deleteLocalLyric": string; // 删除本地歌词
@@ -479,6 +486,7 @@ export interface ILanguageData {
     "panel.musicItemOptions.album": string; // 专辑
     "panel.musicItemOptions.downloaded": string; // 已下载
     "panel.musicItemOptions.readComment": string; // 查看评论
+    "panel.musicItemOptions.shareFile": string; // 分享文件
     "panel.musicItemOptions.deleteLocalDownload": string; // 删除本地下载
     "panel.musicItemOptions.deleteLocalDownloadConfirm": string; // 删除本地下载确认
     "panel.musicItemOptions.associatedLyric": string; // 已关联歌词

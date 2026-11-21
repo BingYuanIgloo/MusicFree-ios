@@ -102,3 +102,15 @@ target 'MusicFree' do
     end
   end
 end
+
+# >>> Inserted by react-native-widget-extension
+# 歌词 Live Activity 扩展目标（MusicFreeWidgets）：空 target 块，
+# 让 pod install 为它生成 Pods-MusicFreeWidgets target 与 xcconfig。
+# 该插件本应在 expo prebuild 时写这段；本项目不跑 prebuild，
+# 这里是手工等价写入（见 ios/MusicFreeWidgets/ 与 project.pbxproj）。
+target 'MusicFreeWidgets' do
+  use_frameworks! :linkage => podfile_properties['ios.useFrameworks'].to_sym if podfile_properties['ios.useFrameworks']
+  use_frameworks! :linkage => ENV['USE_FRAMEWORKS'].to_sym if ENV['USE_FRAMEWORKS']
+end
+
+# >>> Inserted by react-native-widget-extension

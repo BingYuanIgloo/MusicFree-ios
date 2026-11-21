@@ -1,4 +1,10 @@
-import { NativeModules } from "react-native";
+import { NativeModules, Platform } from "react-native";
+import {
+    getIosBasicMeta,
+    getIosMediaCoverImg,
+    getIosMediaLyric,
+    getIosMediaMeta,
+} from "@/utils/iosMediaMeta";
 
 export interface IBasicMeta {
     album?: string;
@@ -24,6 +30,22 @@ interface IMp3Util {
     getMediaTag: (filePath: string) => Promise<IWritableMeta>;
 }
 
-const Mp3Util = NativeModules.Mp3Util;
+const NativeMp3Util = NativeModules.Mp3Util as IMp3Util | undefined;
 
-export default Mp3Util as IMp3Util;
+// iOS 没有 Mp3Util 原生模块：用纯 JS 解析 ID3/FLAC/MP4 标签代替
+// （Android 走原生模块，不受影响）
+const iosMp3Util: IMp3Util = {
+    getBasicMeta: getIosBasicMeta,
+    getMediaMeta: getIosMediaMeta,
+    getMediaCoverImg: getIosMediaCoverImg,
+    getLyric: getIosMediaLyric,
+    // iOS 暂不支持写入标签
+    setMediaTag: async () => {},
+    getMediaTag: async () => ({}),
+};
+
+const Mp3Util: IMp3Util =
+    NativeMp3Util ??
+    (Platform.OS === "ios" ? iosMp3Util : ({} as IMp3Util));
+
+export default Mp3Util;

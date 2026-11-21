@@ -3,6 +3,7 @@ import {
     internalSerializeKey,
     supportLocalMediaType,
 } from "@/constants/commonConst";
+import Mp3Util from "@/native/mp3Util";
 import { IBasicMeta } from "@/native/mp3Util";
 import { addFileScheme, getFileName } from "@/utils/fileUtils.ts";
 import {
@@ -135,6 +136,11 @@ async function getMusicStats(folderPaths: string[]) {
         try {
             dirFiles = await readDir(peek);
         } catch {
+            // 传入的是单个文件而非文件夹（原生文件选择器导入时），
+            // 直接把它收进来，不用再读目录
+            if (localMediaFilter(peek)) {
+                musicList.push(peek);
+            }
             dirFiles = [];
         }
 
@@ -166,12 +172,12 @@ async function importLocal(_folderPaths: string[]) {
     let metas: IBasicMeta[] = [];
     const groups = Math.ceil(musicList.length / groupNum);
     for (let i = 0; i < groups; ++i) {
-    // todo: 添加 ios metas获取
-    //     metas = metas.concat(
-    //         await mp3Util.getMediaMeta(
-    //             musicList.slice(i * groupNum, (i + 1) * groupNum),
-    //         ),
-    //     );
+        // iOS 用纯 JS 解析标签，Android 用原生 Mp3Util
+        metas = metas.concat(
+            await Mp3Util.getMediaMeta(
+                musicList.slice(i * groupNum, (i + 1) * groupNum),
+            ),
+        );
     }
     if (token !== importToken) {
         throw new Error("Import Broken");

@@ -1,4 +1,3 @@
-import ColorBlock from "@/components/base/colorBlock";
 import ListItem from "@/components/base/listItem";
 import Paragraph from "@/components/base/paragraph";
 import ThemeSwitch from "@/components/base/switch";
@@ -9,19 +8,23 @@ import { SortType } from "@/constants/commonConst.ts";
 import pathConst from "@/constants/pathConst";
 import Config, { useAppConfig } from "@/core/appConfig";
 import { useI18N } from "@/core/i18n";
+import lyricManager from "@/core/lyricManager";
 import { ROUTE_PATH, useNavigate } from "@/core/router";
-import useColors from "@/hooks/useColors";
-import LyricUtil, { NativeTextAlignment } from "@/native/lyricUtil";
 import { AppConfigPropertyKey } from "@/types/core/config";
-import { clearCache, getCacheSize, sizeFormatter } from "@/utils/fileUtils";
+import {
+    clearCache,
+    formatDisplayPath,
+    getCacheSize,
+    openInFilesApp,
+    sizeFormatter,
+} from "@/utils/fileUtils";
 import { clearLog, getErrorLogContent } from "@/utils/log";
 import { qualityKeys } from "@/utils/qualities";
 import rpx from "@/utils/rpx";
 import Toast from "@/utils/toast";
 import Clipboard from "@react-native-clipboard/clipboard";
-import Slider from "@react-native-community/slider";
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { SectionList, StyleSheet, TouchableOpacity, View } from "react-native";
+import { Platform, SectionList, StyleSheet, TouchableOpacity, View } from "react-native";
 import { readdir } from "react-native-fs";
 import { FlatList, ScrollView } from "react-native-gesture-handler";
 
@@ -183,11 +186,16 @@ export default function BasicSetting() {
                         search: t("basicSettings.associateLyricType.search"),
                     },
                 ),
-                createSwitch(
-                    t("basicSettings.showExitOnNotification"),
-                    "basic.showExitOnNotification",
-                    showExitOnNotification ?? false,
-                ),
+                // iOS 没有可关闭的媒体通知，Capability.Stop 无对应系统按钮
+                ...(Platform.OS === "ios"
+                    ? []
+                    : [
+                        createSwitch(
+                            t("basicSettings.showExitOnNotification"),
+                            "basic.showExitOnNotification",
+                            showExitOnNotification ?? false,
+                        ),
+                    ]),
             ],
         },
         {
@@ -344,8 +352,10 @@ export default function BasicSetting() {
                             fontSize="subTitle"
                             style={styles.centerText}
                             numberOfLines={3}>
-                            {downloadPath ??
-                                pathConst.downloadMusicPath}
+                            {formatDisplayPath(
+                                downloadPath ??
+                                    pathConst.downloadMusicPath,
+                            )}
                         </ThemeText>
                     ),
                     onPress() {
@@ -370,6 +380,26 @@ export default function BasicSetting() {
                         });
                     },
                 },
+                ...(Platform.OS === "ios"
+                    ? [
+                          {
+                              title: t(
+                                  "basicSettings.openInFilesApp",
+                              ),
+                              onPress() {
+                                  openInFilesApp().then(ok => {
+                                      if (!ok) {
+                                          Toast.warn(
+                                              t(
+                                                  "toast.cannotOpenFilesApp",
+                                              ),
+                                          );
+                                      }
+                                  });
+                              },
+                          },
+                      ]
+                    : []),
                 createRadio(
                     t("basicSettings.maxDownload"),
                     "basic.maxDownload",
@@ -665,30 +695,19 @@ const styles = StyleSheet.create({
 function LyricSetting() {
     /**
      * // Lyric
-     *     "lyric.showStatusBarLyric": boolean;
-     *     "lyric.topPercent": number;
-     *     "lyric.leftPercent": number;
-     *     "lyric.align": number;
-     *     "lyric.color": string;
-     *     "lyric.backgroundColor": string;
-     *     "lyric.widthPercent": number;
-     *     "lyric.fontSize": number;
-     *     "lyric.detailFontSize": number;
+     *     "lyric.showStatusBarLyric": boolean;  // iOS 上 = 灵动岛歌词开关
      *     "lyric.autoSearchLyric": boolean;
+     *
+     * iOS 适配说明：安卓的桌面歌词是悬浮窗（WindowManager 覆盖层），
+     * iOS 没有对应 API，旧开关点下去是死的（见 port-audit §1）。
+     * 现在它改成灵动岛歌词：开关直接控制 Live Activity，
+     * 歌词行变化时由 lyricManager.syncLiveActivity() 推到岛上。
+     * 悬浮窗的位置/宽度/字号/对齐/颜色这 7 个子项在 iOS 上没有
+     * 意义（Live Activity 的布局由系统 widget 固定），已全部移除；
+     * 旧配置键（lyric.topPercent 等）留在配置里不动，仅 iOS 不再读取。
      */
     const showStatusBarLyric = useAppConfig("lyric.showStatusBarLyric");
-    const topPercent = useAppConfig("lyric.topPercent");
-    const leftPercent = useAppConfig("lyric.leftPercent");
-    const align = useAppConfig("lyric.align");
-    const color = useAppConfig("lyric.color");
-    const backgroundColor = useAppConfig("lyric.backgroundColor");
-    const widthPercent = useAppConfig("lyric.widthPercent");
-    const fontSize = useAppConfig("lyric.fontSize");
     const enableAutoSearchLyric = useAppConfig("lyric.autoSearchLyric");
-
-
-
-    const colors = useColors();
 
     const { t } = useI18N();
 
@@ -704,56 +723,15 @@ function LyricSetting() {
         showStatusBarLyric ?? false,
         async newValue => {
             try {
+                Config.setConfig("lyric.showStatusBarLyric", newValue);
+                // 立即同步一次，不用等下一行歌词才生效。
+                lyricManager.syncLiveActivity();
                 if (newValue) {
-                    const hasPermission =
-                        await LyricUtil.checkSystemAlertPermission();
-
-                    if (hasPermission) {
-                        const statusBarLyricConfig = {
-                            topPercent: Config.getConfig("lyric.topPercent"),
-                            leftPercent: Config.getConfig("lyric.leftPercent"),
-                            align: Config.getConfig("lyric.align"),
-                            color: Config.getConfig("lyric.color"),
-                            backgroundColor: Config.getConfig("lyric.backgroundColor"),
-                            widthPercent: Config.getConfig("lyric.widthPercent"),
-                            fontSize: Config.getConfig("lyric.fontSize"),
-                        };
-                        LyricUtil.showStatusBarLyric(
-                            "MusicFree",
-                            statusBarLyricConfig ?? {}
-                        );
-                        Config.setConfig("lyric.showStatusBarLyric", true);
-                    } else {
-                        LyricUtil.requestSystemAlertPermission().finally(() => {
-                            Toast.warn(t("toast.noFloatWindowPermission"));
-                        });
-                    }
-                } else {
-                    LyricUtil.hideStatusBarLyric();
-                    Config.setConfig("lyric.showStatusBarLyric", false);
+                    Toast.success(
+                        t("basicSettings.lyric.liveActivityEnabledHint"),
+                    );
                 }
             } catch { }
-        },
-    );
-
-    const alignStatusBarLyric = createRadio(
-        t("basicSettings.lyric.align"),
-        "lyric.align",
-        [
-            NativeTextAlignment.LEFT,
-            NativeTextAlignment.CENTER,
-            NativeTextAlignment.RIGHT,
-        ],
-        align ?? NativeTextAlignment.CENTER,
-        {
-            [NativeTextAlignment.LEFT]: t("basicSettings.lyric.align.left"),
-            [NativeTextAlignment.CENTER]: t("basicSettings.lyric.align.center"),
-            [NativeTextAlignment.RIGHT]: t("basicSettings.lyric.align.right"),
-        },
-        newVal => {
-            if (showStatusBarLyric) {
-                LyricUtil.setStatusBarLyricAlign(newVal as any);
-            }
         },
     );
 
@@ -773,155 +751,7 @@ function LyricSetting() {
                 <ListItem.Content title={openStatusBarLyric.title} />
                 {openStatusBarLyric.right}
             </ListItem>
-            <View style={lyricStyles.sliderContainer}>
-                <ThemeText>{t("basicSettings.lyric.leftRightDistance")}</ThemeText>
-                <Slider
-                    style={lyricStyles.slider}
-                    minimumTrackTintColor={colors.primary}
-                    maximumTrackTintColor={colors.text ?? "#999999"}
-                    thumbTintColor={colors.primary}
-                    minimumValue={0}
-                    step={0.01}
-                    value={leftPercent ?? 0.5}
-                    maximumValue={1}
-                    onValueChange={val => {
-                        if (showStatusBarLyric) {
-                            LyricUtil.setStatusBarLyricLeft(val);
-                        }
-                    }}
-                    onSlidingComplete={val => {
-                        Config.setConfig("lyric.leftPercent", val);
-                    }}
-                />
-            </View>
-            <View style={lyricStyles.sliderContainer}>
-                <ThemeText>{t("basicSettings.lyric.topBottomDistance")}</ThemeText>
-                <Slider
-                    style={lyricStyles.slider}
-                    minimumTrackTintColor={colors.primary}
-                    maximumTrackTintColor={colors.text ?? "#999999"}
-                    thumbTintColor={colors.primary}
-                    minimumValue={0}
-                    value={topPercent ?? 0}
-                    step={0.01}
-                    maximumValue={1}
-                    onValueChange={val => {
-                        if (showStatusBarLyric) {
-                            LyricUtil.setStatusBarLyricTop(val);
-                        }
-                    }}
-                    onSlidingComplete={val => {
-                        Config.setConfig("lyric.topPercent", val);
-                    }}
-                />
-            </View>
-            <View style={lyricStyles.sliderContainer}>
-                <ThemeText>{t("basicSettings.lyric.width")}</ThemeText>
-                <Slider
-                    style={lyricStyles.slider}
-                    minimumTrackTintColor={colors.primary}
-                    maximumTrackTintColor={colors.text ?? "#999999"}
-                    thumbTintColor={colors.primary}
-                    minimumValue={0}
-                    step={0.01}
-                    value={widthPercent ?? 0.5}
-                    maximumValue={1}
-                    onValueChange={val => {
-                        if (showStatusBarLyric) {
-                            LyricUtil.setStatusBarLyricWidth(val);
-                        }
-                    }}
-                    onSlidingComplete={val => {
-                        Config.setConfig("lyric.widthPercent", val);
-                    }}
-                />
-            </View>
-            <View style={lyricStyles.sliderContainer}>
-                <ThemeText>{t("basicSettings.lyric.fontSize")}</ThemeText>
-                <Slider
-                    style={lyricStyles.slider}
-                    minimumTrackTintColor={colors.primary}
-                    maximumTrackTintColor={colors.text ?? "#999999"}
-                    thumbTintColor={colors.primary}
-                    minimumValue={Math.round(rpx(18))}
-                    step={0.5}
-                    maximumValue={Math.round(rpx(56))}
-                    value={fontSize ?? Math.round(rpx(24))}
-                    onValueChange={val => {
-                        if (showStatusBarLyric) {
-                            LyricUtil.setStatusBarLyricFontSize(val);
-                        }
-                    }}
-                    onSlidingComplete={val => {
-                        Config.setConfig("lyric.fontSize", val);
-                    }}
-                />
-            </View>
-            <ListItem
-                withHorizontalPadding
-                heightType="small"
-                onPress={alignStatusBarLyric.onPress}>
-                <ListItem.Content title={alignStatusBarLyric.title} />
-                {alignStatusBarLyric.right}
-            </ListItem>
-            <ListItem
-                withHorizontalPadding
-                heightType="small"
-                onPress={() => {
-                    showPanel("ColorPicker", {
-                        closePanelWhenSelected: true,
-                        defaultColor: color ?? "transparent",
-                        onSelected(color) {
-                            if (showStatusBarLyric) {
-                                const colorStr = color.hexa();
-                                LyricUtil.setStatusBarColors(colorStr, null);
-                                Config.setConfig("lyric.color", colorStr);
-                            }
-                        },
-                    });
-                }}>
-                <ListItem.Content title={t("basicSettings.lyric.textColor")} />
-                <ColorBlock color={color ?? "#FFE9D2FF"} />
-            </ListItem>
-            <ListItem
-                withHorizontalPadding
-                heightType="small"
-                onPress={() => {
-                    showPanel("ColorPicker", {
-                        closePanelWhenSelected: true,
-                        defaultColor:
-                            backgroundColor ?? "transparent",
-                        onSelected(color) {
-                            if (showStatusBarLyric) {
-                                const colorStr = color.hexa();
-                                LyricUtil.setStatusBarColors(null, colorStr);
-                                Config.setConfig(
-                                    "lyric.backgroundColor",
-                                    colorStr,
-                                );
-                            }
-                        },
-                    });
-                }}>
-                <ListItem.Content title={t("basicSettings.lyric.backgroundColor")} />
-                <ColorBlock
-                    color={backgroundColor ?? "#84888153"}
-                />
-            </ListItem>
         </View>
     );
 }
 
-const lyricStyles = StyleSheet.create({
-    slider: {
-        flex: 1,
-        marginLeft: rpx(24),
-    },
-    sliderContainer: {
-        height: rpx(96),
-        width: "100%",
-        flexDirection: "row",
-        alignItems: "center",
-        paddingHorizontal: rpx(24),
-    },
-});

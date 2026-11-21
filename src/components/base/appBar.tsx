@@ -1,6 +1,8 @@
 import React, { ReactNode, useEffect, useState } from "react";
 import {
+    ActionSheetIOS,
     LayoutRectangle,
+    Platform,
     StatusBar as OriginalStatusBar,
     StyleProp,
     StyleSheet,
@@ -16,6 +18,7 @@ import IconButton from "./iconButton";
 import globalStyle from "@/constants/globalStyle";
 import ThemeText from "./themeText";
 import { useNavigation } from "@react-navigation/native";
+import { useI18N } from "@/core/i18n";
 import Animated, {
     Easing,
     useAnimatedStyle,
@@ -73,6 +76,7 @@ export default function AppBar(props: IAppBarProps) {
 
     const colors = useColors();
     const navigation = useNavigation();
+    const { t } = useI18N();
 
     const bgColor = color(colors.appBar ?? colors.primary).toString();
     const contentColor = _color ?? colors.appBarText;
@@ -157,7 +161,35 @@ export default function AppBar(props: IAppBarProps) {
                         color={contentColor}
                         style={[globalStyle.notShrink, styles.rightButton]}
                         onPress={() => {
-                            setShowMenu(true);
+                            // iOS 用系统原生的底部操作表，而不是自定义气泡菜单
+                            if (Platform.OS === "ios") {
+                                const visibleMenu = menu.filter(
+                                    it => it.show !== false,
+                                );
+                                ActionSheetIOS.showActionSheetWithOptions(
+                                    {
+                                        options: [
+                                            ...visibleMenu.map(
+                                                it => it.title,
+                                            ),
+                                            t("common.cancel"),
+                                        ],
+                                        cancelButtonIndex:
+                                            visibleMenu.length,
+                                    },
+                                    buttonIndex => {
+                                        if (
+                                            buttonIndex < visibleMenu.length
+                                        ) {
+                                            visibleMenu[
+                                                buttonIndex
+                                            ].onPress?.();
+                                        }
+                                    },
+                                );
+                            } else {
+                                setShowMenu(true);
+                            }
                         }}
                     />
                 ) : null}
