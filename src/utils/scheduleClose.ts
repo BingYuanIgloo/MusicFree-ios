@@ -3,6 +3,7 @@ import TrackPlayer from "@/core/trackPlayer";
 import NativeUtils from "@/native/utils";
 import { atom, getDefaultStore, useAtomValue } from "jotai";
 import { useEffect, useRef, useState } from "react";
+import { Platform } from "react-native";
 import BackgroundTimer from "react-native-background-timer";
 
 
@@ -14,6 +15,10 @@ let timerId: any;
 
 async function exitApp() {
     await TrackPlayer.reset();
+    // iOS 不允许程序主动退出：定时到点只需停止播放
+    if (Platform.OS === "ios") {
+        return;
+    }
     NativeUtils.exitApp();
 }
 
