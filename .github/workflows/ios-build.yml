@@ -28,6 +28,21 @@ jobs:
       - name: Install JS dependencies
         run: yarn install --frozen-lockfile
 
+      - name: Copy Live Activity module into widget-extension pod
+        run: |
+          # react-native-widget-extension 的 config plugin 本应在 expo prebuild 时
+          # 把 Module.swift / Attributes.swift 拷进它自己的 ios/ 目录，再由
+          # ReactNativeWidgetExtension 这个 pod 编进主 App；本项目不跑 prebuild，
+          # 这里手工做同样的一步（必须在 pod install 之前）。
+          # 包还没装进 package.json 时这一步自动跳过：构建照常成功，只是
+          # 原生模块缺失，JS 侧静默 no-op（灵动岛不出现，App 不受影响）。
+          if [ -d node_modules/react-native-widget-extension/ios ]; then
+            cp ios/MusicFreeWidgets/Module.swift ios/MusicFreeWidgets/Attributes.swift node_modules/react-native-widget-extension/ios/
+            echo "Copied Module.swift + Attributes.swift into ReactNativeWidgetExtension pod"
+          else
+            echo "react-native-widget-extension not installed; Live Activity native module will be absent (JS degrades gracefully)"
+          fi
+
       - name: Install CocoaPods
         run: |
           cd ios
@@ -42,6 +57,18 @@ jobs:
           mkdir -p Payload
           cp -r "$APP_PATH" Payload/
           zip -r MusicFree-unsigned.ipa Payload
+
+      - name: Verify app and Live Activity extension
+        run: |
+          set -euxo pipefail
+          APP_PATH=$(find ios/build/Build/Products/Release-iphoneos -name "*.app" -maxdepth 1 | head -1)
+          test -d "$APP_PATH"
+          test -d "$APP_PATH/PlugIns/MusicFreeWidgets.appex"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :NSSupportsLiveActivities' "$APP_PATH/Info.plist")" = "true"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :NSExtension:NSExtensionPointIdentifier' "$APP_PATH/PlugIns/MusicFreeWidgets.appex/Info.plist")" = "com.apple.widgetkit-extension"
+          echo "App exists. Live Activity extension exists."
+          echo "Embedded plug-ins:"
+          find "$APP_PATH/PlugIns" -maxdepth 2 -type d -print
 
       - uses: actions/upload-artifact@v4
         with:
