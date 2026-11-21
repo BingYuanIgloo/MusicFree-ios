@@ -20,7 +20,6 @@ import { checkAndCreateDir } from "@/utils/fileUtils";
 import PersistStatus from "@/utils/persistStatus";
 import CryptoJs from "crypto-js";
 import { unlink, writeFile } from "react-native-fs";
-import RNTrackPlayer, { Event } from "react-native-track-player";
 import { TrackPlayerEvents } from "@/core.defination/trackPlayer";
 import { IPluginManager } from "@/types/core/pluginManager";
 
@@ -53,6 +52,9 @@ class LyricManager implements IInjectable {
     /** 最近一次进度事件的位置/总时长（用来算灵动岛进度条的开始时间）。 */
     private lastProgress = { position: 0, duration: 0 };
 
+    /** 进度轮询定时器（替代 v4 的 PlaybackProgressUpdated 事件）。 */
+    private progressTimer: ReturnType<typeof setInterval> | null = null;
+
 
     get currentLyricItem() {
         return getDefaultStore().get(currentLyricItemAtom);
@@ -74,25 +76,17 @@ class LyricManager implements IInjectable {
             this.refreshLyric(true, true);
         });
 
-        RNTrackPlayer.addEventListener(Event.PlaybackProgressUpdated, evt => {
-            this.lastProgress = {
-                position: evt.position ?? 0,
-                duration: evt.duration ?? this.lastProgress.duration,
-            };
-            const parser = this.lyricParser;
-            if (!parser || !this.trackPlayer.isCurrentMusic(parser.musicItem)) {
-                return;
-            }
-
-            const currentLyricItem = getDefaultStore().get(currentLyricItemAtom);
-            const newLyricItem = parser.getPosition(evt.position);
-
-
-            if (currentLyricItem?.lrc !== newLyricItem?.lrc) {
-                // 更新当前歌词状态
-                getDefaultStore().set(currentLyricItemAtom, newLyricItem ?? null);
-            }
-        });
+        // v5 不再按固定间隔发 PlaybackProgressUpdated（iOS 原生只在配了
+        // progressSync 时才发；v5 的 useProgress 也是轮询 getProgress 实现的），
+        // 所以歌词进度改为主动轮询：每 500ms 读一次进度并推进歌词行。
+        // 轮询是同步 JSI 调用，开销可忽略；行变化才写 atom，灵动岛也只在
+        // 行变化时才推，不会多推。
+        if (this.progressTimer) {
+            clearInterval(this.progressTimer);
+        }
+        this.progressTimer = setInterval(() => {
+            this.onProgressTick();
+        }, 500);
 
         // 歌词行一变就同步一次灵动岛（currentLyricItemAtom 只在行文本
         // 变化时更新，所以这里天然就是“行变化才推”，不会每秒都推）。
@@ -101,6 +95,37 @@ class LyricManager implements IInjectable {
         });
 
         this.refreshLyric(true);
+    }
+
+    /**
+     * 轮询进度并推进歌词行（替代 v4 的 PlaybackProgressUpdated 事件）。
+     * 同时把进度写进 PersistStatus（原来由后台 service 的同名监听负责，
+     * v5 里那个监听也随 service 重写一起去掉了）。
+     */
+    private async onProgressTick() {
+        let progress: { position: number; duration: number };
+        try {
+            progress = await this.trackPlayer.getProgress();
+        } catch {
+            return;
+        }
+        const position = progress?.position ?? 0;
+        const duration = progress?.duration ?? this.lastProgress.duration;
+        this.lastProgress = { position, duration };
+        PersistStatus.set("music.progress", position);
+
+        const parser = this.lyricParser;
+        if (!parser || !this.trackPlayer.isCurrentMusic(parser.musicItem)) {
+            return;
+        }
+
+        const currentLyricItem = getDefaultStore().get(currentLyricItemAtom);
+        const newLyricItem = parser.getPosition(position);
+
+        if (currentLyricItem?.lrc !== newLyricItem?.lrc) {
+            // 更新当前歌词状态
+            getDefaultStore().set(currentLyricItemAtom, newLyricItem ?? null);
+        }
     }
 
     /**
