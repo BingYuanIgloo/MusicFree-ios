@@ -340,7 +340,7 @@ export default async function () {
         getDefaultStore().set(bootstrapAtom, {
             "state": "Loading",
         });
-        await withTimeout(bootstrapImpl)(, 30000, "bootstrapImpl");
+        await withTimeout(bootstrapImpl(), 30000, "bootstrapImpl");
         bindEvents();
         getDefaultStore().set(bootstrapAtom, {
             "state": "Done",
