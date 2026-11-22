@@ -9,6 +9,7 @@ on:
       - 'ios/**'
       - 'package.json'
       - 'package-lock.json'
+      - 'metro.config.js'
       - '.github/workflows/ios-build.yml'
 
 jobs:
