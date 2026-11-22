@@ -28,10 +28,23 @@ try {
     // 入口模块加载失败（例如原生存储模块异常）：绝不白屏，直接显示错误。
     console.error('[MusicFree] 入口加载失败', e);
     const React = require('react');
-    const {View, Text, ScrollView} = require('react-native');
+    const {View, Text, ScrollView, TouchableOpacity} = require('react-native');
     const message = String((e && e.message) || e);
     const stack = String((e && e.stack) || '');
     Pages = function BootErrorScreen() {
+        const [copied, setCopied] = React.useState(false);
+        const fullText = message + '\n\n' + stack;
+        const onCopy = () => {
+            try {
+                const ClipboardModule = require('@react-native-clipboard/clipboard');
+                const Clipboard = ClipboardModule.default || ClipboardModule;
+                Clipboard.setString(fullText);
+                setCopied(true);
+                setTimeout(() => setCopied(false), 2000);
+            } catch (err) {
+                console.warn('[MusicFree] 复制报错信息失败', err);
+            }
+        };
         return (
             <View style={{flex: 1, backgroundColor: '#fff', padding: 24, justifyContent: 'center'}}>
                 <Text style={{fontSize: 18, fontWeight: 'bold', marginBottom: 12}}>MusicFree 启动失败</Text>
@@ -39,7 +52,14 @@ try {
                 <ScrollView>
                     <Text style={{color: '#666', fontSize: 12}}>{stack}</Text>
                 </ScrollView>
-                <Text style={{marginTop: 16, color: '#666'}}>请把这屏文字截图发给开发者。</Text>
+                <TouchableOpacity
+                    onPress={onCopy}
+                    style={{marginTop: 16, backgroundColor: '#1677ff', borderRadius: 8, paddingVertical: 12, alignItems: 'center'}}>
+                    <Text style={{color: '#fff', fontSize: 16, fontWeight: 'bold'}}>
+                        {copied ? '已复制 ✓' : '一键复制报错信息'}
+                    </Text>
+                </TouchableOpacity>
+                <Text style={{marginTop: 12, color: '#666', textAlign: 'center'}}>复制后把文字发给开发者，截图也可以。</Text>
             </View>
         );
     };
