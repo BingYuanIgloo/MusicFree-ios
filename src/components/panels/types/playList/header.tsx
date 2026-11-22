@@ -6,7 +6,7 @@ import TrackPlayer, { usePlayList, useRepeatMode } from "@/core/trackPlayer";
 import delay from "@/utils/delay";
 import rpx from "@/utils/rpx";
 import React from "react";
-import { InteractionManager, StyleSheet, View } from "react-native";
+import { StyleSheet, View } from "react-native";
 
 export default function Header() {
     const repeatMode = useRepeatMode();
@@ -27,11 +27,9 @@ export default function Header() {
                 </ThemeText>
             </ThemeText>
             <IconTextButton
-                onPress={() => {
-                    InteractionManager.runAfterInteractions(async () => {
-                        await delay(20, false);
-                        TrackPlayer.toggleRepeatMode();
-                    });
+                onPress={async () => {
+                    await delay(20, false);
+                    TrackPlayer.toggleRepeatMode();
                 }}
                 icon={repeatModeConst[repeatMode].icon}>
                 {t(("repeatMode." + repeatMode) as any)}
