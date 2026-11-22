@@ -22,8 +22,6 @@ import ErrorBoundary from "@/components/errorBoundary";
  * 字体颜色
  */
 
-StatusBar.setBackgroundColor("transparent");
-StatusBar.setTranslucent(true);
 
 bootstrap();
 const Stack = createNativeStackNavigator<any>();
