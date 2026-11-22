@@ -4,7 +4,7 @@ import useCheckUpdate from "@/hooks/useCheckUpdate";
 import { useListenOrientationChange } from "@/hooks/useOrientation";
 import { getDefaultStore, useAtomValue } from "jotai";
 import { useEffect } from "react";
-import { AppState, NativeEventSubscription, useColorScheme } from "react-native";
+import { ActivityIndicator, AppState, NativeEventSubscription, ScrollView, StyleSheet, Text, useColorScheme, View } from "react-native";
 import bootstrapAtom from "./bootstrap.atom";
 import { initTrackPlayer } from "./bootstrap";
 import { showDialog } from "@/components/dialogs/useDialog";
@@ -65,5 +65,49 @@ export function BootstrapComponent() {
         };
     }, [bootstrapState]);
 
+    // 启动中 / 启动失败时显示全屏提示，避免白屏无反馈。
+    // （开屏隐藏前这层被开屏盖住；开屏隐藏后若仍在启动，用户能看到进度。）
+    if (bootstrapState.state === "Loading") {
+        return (
+            <View style={styles.overlay}>
+                <ActivityIndicator size="large" color="#4b91c5" />
+                <Text style={styles.title}>MusicFree</Text>
+                <Text style={styles.sub}>正在启动…</Text>
+            </View>
+        );
+    }
+    if (bootstrapState.state === "Fatal" || bootstrapState.state === "TrackPlayerError") {
+        const reason = bootstrapState.reason;
+        return (
+            <View style={styles.overlay}>
+                <Text style={styles.title}>启动遇到问题</Text>
+                <Text style={styles.sub}>
+                    {bootstrapState.state === "TrackPlayerError" ? "播放器初始化失败" : "初始化失败"}
+                </Text>
+                <ScrollView style={styles.errBox}>
+                    <Text style={styles.errText}>{String((reason && reason.message) || reason || "")}</Text>
+                    <Text style={[styles.errText, {marginTop: 8}]}>{String((reason && reason.stack) || "")}</Text>
+                </ScrollView>
+                <Text style={styles.sub}>请把这屏文字截图发给开发者。</Text>
+            </View>
+        );
+    }
+
     return null;
 }
+
+const styles = StyleSheet.create({
+    overlay: {
+        ...StyleSheet.absoluteFillObject,
+        zIndex: 999,
+        elevation: 999,
+        backgroundColor: "#fff",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 24,
+    },
+    title: {fontSize: 20, fontWeight: "bold", marginTop: 16, marginBottom: 8},
+    sub: {fontSize: 14, color: "#666", textAlign: "center"},
+    errBox: {maxHeight: 300, width: "100%", marginTop: 12},
+    errText: {fontSize: 12, color: "#c00"},
+});
