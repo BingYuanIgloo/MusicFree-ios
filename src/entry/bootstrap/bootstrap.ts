@@ -38,7 +38,7 @@ MusicSheet.injectDependencies(Config);
 
 /** 给一步加超时：超时则记一条警告并跳过，不让某一步卡死整个启动。 */
 async function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T | undefined> {
-        let timer: ReturnType<typeofSetTimeout> | undefined;
+        let timer: ReturnType<typeof SetTimeout> | undefined;
         const timeout = new Promise<undefined>(resolve => {
                     timer = setTimeout(() => {
                                     console.warn(`[bootstrap] ${label} 超时（${ms}ms），跳过`);
