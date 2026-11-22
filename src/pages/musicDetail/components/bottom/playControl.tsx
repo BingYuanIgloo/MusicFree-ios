@@ -1,7 +1,7 @@
 import repeatModeConst from "@/constants/repeatModeConst";
 import rpx from "@/utils/rpx";
 import React from "react";
-import { InteractionManager, StyleSheet, View } from "react-native";
+import { StyleSheet, View } from "react-native";
 
 import Icon from "@/components/base/icon.tsx";
 import { showPanel } from "@/components/panels/usePanel";
@@ -34,10 +34,8 @@ export default function () {
                     name={repeatModeConst[repeatMode].icon}
                     size={rpx(56)}
                     onPress={async () => {
-                        InteractionManager.runAfterInteractions(async () => {
-                            await delay(20, false);
-                            TrackPlayer.toggleRepeatMode();
-                        });
+                        await delay(20, false);
+                        TrackPlayer.toggleRepeatMode();
                     }}
                 />
                 <Icon
