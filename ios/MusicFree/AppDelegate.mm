@@ -1,7 +1,13 @@
 #import "AppDelegate.h"
 
+#import <Expo/Expo.h>
 #import <React/RCTBundleURLProvider.h>
 #import <React/RCTLinkingManager.h>
+
+// RCTAppDelegate 的 loadReactNativeWindow 未公开声明，这里声明一下以便调用。
+@interface AppDelegate ()
+- (void)loadReactNativeWindow:(NSDictionary *)launchOptions;
+@end
 
 @implementation AppDelegate
 
@@ -13,7 +19,19 @@
   // They will be passed down to the ViewController used by React Native.
   self.initialProps = @{};
 
-  return [super application:application didFinishLaunchingWithOptions:launchOptions];
+  // Expo SDK 58：EXAppDelegateWrapper 已移除，Expo 运行时的安装改由
+  // EXReactNativeFactory 在 host:didInitializeRuntime: 里完成（调
+  // AppContext.setRuntime → prepareRuntime → 装 global.expo）。
+  // RCTAppDelegate 会内联创建一个普通的 RCTReactNativeFactory，它从不调
+  // setRuntime，于是 globalThis.expo 保持 undefined，JS 一加载
+  // expo-modules-core 就在 `globalThis.expo.EventEmitter` 抛错白屏。
+  // 所以这里不用 super 的实现（它会把 factory 覆盖回普通版），改用
+  // Expo 的 factory，再按原样加载窗口。
+  self.reactNativeFactory = [[EXReactNativeFactory alloc] initWithDelegate:self];
+
+  [self loadReactNativeWindow:launchOptions];
+
+  return YES;
 }
 
 - (NSURL *)sourceURLForBridge:(RCTBridge *)bridge
