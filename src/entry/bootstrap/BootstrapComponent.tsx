@@ -4,7 +4,7 @@ import useCheckUpdate from "@/hooks/useCheckUpdate";
 import { useListenOrientationChange } from "@/hooks/useOrientation";
 import { getDefaultStore, useAtomValue } from "jotai";
 import { useEffect } from "react";
-import { ActivityIndicator, AppState, NativeEventSubscription, ScrollView, StyleSheet, Text, useColorScheme, View } from "react-native";
+import { AppState, NativeEventSubscription, ScrollView, StyleSheet, Text, useColorScheme, View } from "react-native";
 import bootstrapAtom from "./bootstrap.atom";
 import { initTrackPlayer } from "./bootstrap";
 import { showDialog } from "@/components/dialogs/useDialog";
@@ -64,18 +64,9 @@ export function BootstrapComponent() {
             }
         };
     }, [bootstrapState]);
-
-    // 启动中 / 启动失败时显示全屏提示，避免白屏无反馈。
-    // （开屏隐藏前这层被开屏盖住；开屏隐藏后若仍在启动，用户能看到进度。）
-    if (bootstrapState.state === "Loading") {
-        return (
-            <View style={styles.overlay}>
-                <ActivityIndicator size="large" color="#4b91c5" />
-                <Text style={styles.title}>MusicFree</Text>
-                <Text style={styles.sub}>正在启动…</Text>
-            </View>
-        );
-    }
+        // 启动中不显示自定义加载屏：原版 MusicFree 没有这个界面，
+        // 启动只用系统开屏，主界面直接渲染，启动过程在后台进行。
+        // 启动失败时仍显示下面的错误屏（Fatal / TrackPlayerError）。
     if (bootstrapState.state === "Fatal" || bootstrapState.state === "TrackPlayerError") {
         const reason = bootstrapState.reason;
         return (

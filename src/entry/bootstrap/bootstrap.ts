@@ -36,14 +36,35 @@ lyricManager.injectDependencies(TrackPlayer, Config, PluginManager);
 MusicSheet.injectDependencies(Config);
 
 
+/** 给一步加超时：超时则记一条警告并跳过，不让某一步卡死整个启动。 */
+async function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T | undefined> {
+        let timer: ReturnType<typeof SetTimeout> | undefined;
+        const timeout = new Promise<undefined>(resolve => {
+                    timer = setTimeout(() => {
+                                    console.warn(`[bootstrap] ${label} 超时（${ms}ms），跳过`);
+                                    resolve(undefined);
+                    }, ms);
+        });
+        try {
+                    return await Promise.race([promise, timeout]);
+        } finally {
+                    if (timer) {
+                                    clearTimeout(timer);
+                    }
+        }
+}
 async function bootstrapImpl() {
-    await SplashScreen.preventAutoHideAsync()
+    await withTimeout(
+        SplashScreen.preventAutoHideAsync()
         .then(result =>
             console.log(
                 `SplashScreen.preventAutoHideAsync() succeeded: ${result}`,
             ),
         )
-        .catch(console.warn); // it's good to explicitly catch and inspect any error
+            .catch(console.warn),
+        3000,
+            "SplashScreen.preventAutoHideAsync",
+            );
     const logger = perfLogger();
     // 1. 检查权限（仅 Android 需要读写存储权限；iOS 为沙盒，无需申请）
     if (Platform.OS === "android") {
@@ -76,14 +97,15 @@ async function bootstrapImpl() {
 
     // 2. 数据初始化
     /** 初始化路径 */
-    await setupFolder();
+    await withTimeout(setupFolder(), 10000, "setupFolder");
     trace("文件夹初始化完成");
     logger.mark("文件夹初始化完成");
 
 
 
     // 加载配置
-    await Promise.all([
+    await withTimeout(
+        Promise.all([
         Config.setup().then(() => {
             logger.mark("Config");
         }),
@@ -93,16 +115,19 @@ async function bootstrapImpl() {
         musicHistory.setup().then(() => {
             logger.mark("musicHistory");
         }),
-    ]);
+        ]),
+        15000,
+            "配置初始化",
+            );
     trace("配置初始化完成");
     logger.mark("配置初始化完成");
 
     // 加载插件
-    await PluginManager.setup();
+    await withTimeout(PluginManager.setup(), 15000, "插件初始化");
     logger.mark("插件初始化完成");
     trace("插件初始化完成");
 
-    await initTrackPlayer(logger).catch(err => {
+    await withTimeout(initTrackPlayer(logger), 15000, "播放器初始化").catch(err => {
         // 初始化播放器出错，延迟初始化
         const bootstrapState = getDefaultStore().get(bootstrapAtom);
 
@@ -114,7 +139,7 @@ async function bootstrapImpl() {
         }
     });
 
-    await LocalMusicSheet.setup();
+    await withTimeout(LocalMusicSheet.setup(), 10000, "本地音乐初始化");
     trace("本地音乐初始化完成");
     logger.mark("本地音乐初始化完成");
 
@@ -315,7 +340,7 @@ export default async function () {
         getDefaultStore().set(bootstrapAtom, {
             "state": "Loading",
         });
-        await bootstrapImpl();
+        await withTimeout(bootstrapImpl(), 30000, "bootstrapImpl");
         bindEvents();
         getDefaultStore().set(bootstrapAtom, {
             "state": "Done",
