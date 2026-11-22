@@ -306,6 +306,11 @@ function bindEvents() {
 }
 
 export default async function () {
+    // 兜底：无论初始化是否卡住，6 秒后一定隐藏开屏，避免永久白屏。
+    // （若 JS 在入口加载阶段就已失败，开屏由 index.js 的错误屏接管。）
+    const splashTimer = setTimeout(() => {
+        SplashScreen.hideAsync().catch(() => {});
+    }, 6000);
     try {
         getDefaultStore().set(bootstrapAtom, {
             "state": "Loading",
@@ -324,6 +329,7 @@ export default async function () {
             });
         }
     }
+    clearTimeout(splashTimer);
     // 隐藏开屏动画
     console.log("HIDE");
     await SplashScreen.hideAsync();
