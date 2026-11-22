@@ -1,4 +1,4 @@
-#import <RCTAppDelegate.h>
+#import <Expo/Expo.h>
 #import <UIKit/UIKit.h>
 
 // SDK 58 已删除 EXAppDelegateWrapper（SDK 54 起已废弃，SDK 55 移除；
