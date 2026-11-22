@@ -44,8 +44,11 @@ setup_permissions([
 ])
 
 
-platform :ios, min_ios_version_supported
-# platform :ios, podfile_properties['ios.deploymentTarget'] || '15.1'
+# 注意：不要用 min_ios_version_supported —— 它是 React Native 写死的 '15.1'，
+# 不读 project.pbxproj（第 10 次编包已证实：pbxproj 改到 16.4 后它仍报 15.1）。
+# Expo 58 的模块要求 iOS 16.4，平台版本从 Podfile.properties.json 的
+# ios.deploymentTarget 取（Expo prebuild 生成的标准写法）。
+platform :ios, podfile_properties['ios.deploymentTarget'] || '15.1'
 install! 'cocoapods',
   :deterministic_uuids => false
 
