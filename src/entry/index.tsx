@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import bootstrap from "./bootstrap/bootstrap";
@@ -23,11 +23,13 @@ import ErrorBoundary from "@/components/errorBoundary";
  */
 
 
-bootstrap();
 const Stack = createNativeStackNavigator<any>();
 
 export default function Pages() {
     const theme = Theme.useTheme();
+    useEffect(() => {
+        bootstrap();
+    }, []);
 
     return (
         <ErrorBoundary>
@@ -43,6 +45,9 @@ export default function Pages() {
                                 headerShown: false,
                                 animation: "slide_from_right",
                                 animationDuration: 100,
+                                contentStyle: {
+                                    backgroundColor: theme.colors.pageBackground,
+                                },
                             }}>
                             {routes.map(route => (
                                 <Stack.Screen
