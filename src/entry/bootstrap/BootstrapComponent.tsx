@@ -4,7 +4,7 @@ import useCheckUpdate from "@/hooks/useCheckUpdate";
 import { useListenOrientationChange } from "@/hooks/useOrientation";
 import { getDefaultStore, useAtomValue } from "jotai";
 import { useEffect } from "react";
-import { AppState, NativeEventSubscription, ScrollView, StyleSheet, Text, useColorScheme, View } from "react-native";
+import { AppState, NativeEventSubscription, Text, View, useColorScheme } from "react-native";
 import bootstrapAtom from "./bootstrap.atom";
 import { initTrackPlayer } from "./bootstrap";
 import { showDialog } from "@/components/dialogs/useDialog";
@@ -64,41 +64,27 @@ export function BootstrapComponent() {
             }
         };
     }, [bootstrapState]);
-        // 启动中不显示自定义加载屏：原版 MusicFree 没有这个界面，
-        // 启动只用系统开屏，主界面直接渲染，启动过程在后台进行。
-        // 启动失败时仍显示下面的错误屏（Fatal / TrackPlayerError）。
-    if (bootstrapState.state === "Fatal" || bootstrapState.state === "TrackPlayerError") {
-        const reason = bootstrapState.reason;
+
+    // 启动失败时绝不能静默白屏: 直接在屏幕上显示报错 (纯文本, 无自定义加载屏)
+    if (bootstrapState.state === "Fatal") {
         return (
-            <View style={styles.overlay}>
-                <Text style={styles.title}>启动遇到问题</Text>
-                <Text style={styles.sub}>
-                    {bootstrapState.state === "TrackPlayerError" ? "播放器初始化失败" : "初始化失败"}
+            <View
+                style={{
+                    flex: 1,
+                    justifyContent: "center",
+                    alignItems: "center",
+                    backgroundColor: "#ffffff",
+                    padding: 24,
+                }}>
+                <Text style={{ fontSize: 17, fontWeight: "600", color: "#000000", marginBottom: 12 }}>
+                    启动失败
                 </Text>
-                <ScrollView style={styles.errBox}>
-                    <Text style={styles.errText}>{String((reason && reason.message) || reason || "")}</Text>
-                    <Text style={[styles.errText, {marginTop: 8}]}>{String((reason && reason.stack) || "")}</Text>
-                </ScrollView>
-                <Text style={styles.sub}>请把这屏文字截图发给开发者。</Text>
+                <Text style={{ fontSize: 14, color: "#666666", textAlign: "center" }}>
+                    {bootstrapState.reason?.message || String(bootstrapState.reason || "未知错误")}
+                </Text>
             </View>
         );
     }
 
     return null;
 }
-
-const styles = StyleSheet.create({
-    overlay: {
-        ...StyleSheet.absoluteFillObject,
-        zIndex: 999,
-        elevation: 999,
-        backgroundColor: "#fff",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: 24,
-    },
-    title: {fontSize: 20, fontWeight: "bold", marginTop: 16, marginBottom: 8},
-    sub: {fontSize: 14, color: "#666", textAlign: "center"},
-    errBox: {maxHeight: 300, width: "100%", marginTop: 12},
-    errText: {fontSize: 12, color: "#c00"},
-});

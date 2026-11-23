@@ -17,8 +17,7 @@ function TimeLabel(props: ITimeLabelProps) {
 }
 
 export default function SeekBar() {
-    // v5 的 useProgress 参数是秒（v4 是毫秒）：1000 秒会把进度条冻住。
-    const progress = useProgress(1);
+    const progress = useProgress(1000);
     const [tmpProgress, setTmpProgress] = useState<number | null>(null);
     const slidingRef = useRef(false);
 

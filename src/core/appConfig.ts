@@ -177,8 +177,7 @@ class AppConfig implements IAppConfig {
         value?: IAppConfigProperties[K] | undefined,
     ): void {
         if (value === undefined) {
-            // MMKV 4.x 把 delete 改名成 remove（2.x 的 delete 已不存在）。
-            configStore.remove(key);
+            configStore.delete(key);
         } else {
             configStore.set(key, safeStringify(value));
         }

@@ -91,7 +91,16 @@ const _console = {
     error: _consoleBind.bind(null, "error"),
 };
 
-const appVersion = deviceInfoModule.getVersion();
+const appVersion = (() => {
+    try {
+        return deviceInfoModule.getVersion();
+    } catch (e) {
+        // 原生 device-info 失败绝不能让模块加载崩掉 (否则整应用白屏):
+        // 版本号仅用于插件 hash/校验, 空串可安全降级
+        console.warn("[plugin] deviceInfo.getVersion() failed, using empty appVersion:", e);
+        return "";
+    }
+})();
 
 function formatAuthUrl(url: string) {
     const urlObj = new URL(url);

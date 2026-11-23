@@ -1,4 +1,4 @@
-import type { Progress } from "@rntp/player";
+import type { Progress } from "react-native-track-player";
 import type { MusicRepeatMode } from "@/constants/repeatModeConst";
 import { IInjectable } from "@/types/infra";
 import type EventEmitter from "eventemitter3";

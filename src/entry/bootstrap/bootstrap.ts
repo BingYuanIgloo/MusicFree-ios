@@ -1,6 +1,7 @@
 import "react-native-get-random-values";
 
 import { getCurrentDialog, showDialog } from "@/components/dialogs/useDialog.ts";
+import { ImgAsset } from "@/constants/assetsConst";
 import { emptyFunction, localPluginHash, supportLocalMediaType } from "@/constants/commonConst";
 import pathConst from "@/constants/pathConst";
 import Config from "@/core/appConfig";
@@ -21,7 +22,7 @@ import Toast from "@/utils/toast";
 import * as SplashScreen from "expo-splash-screen";
 import {  Linking, Platform } from "react-native";
 import { PERMISSIONS, check, request } from "react-native-permissions";
-import RNTrackPlayer, { PlayerCommand } from "@rntp/player";
+import RNTrackPlayer, { AppKilledPlaybackBehavior, Capability } from "react-native-track-player";
 import i18n from "@/core/i18n";
 import bootstrapAtom from "./bootstrap.atom";
 import { getDefaultStore } from "jotai";
@@ -36,35 +37,14 @@ lyricManager.injectDependencies(TrackPlayer, Config, PluginManager);
 MusicSheet.injectDependencies(Config);
 
 
-/** 给一步加超时：超时则记一条警告并跳过，不让某一步卡死整个启动。 */
-async function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T | undefined> {
-        let timer: ReturnType<typeof SetTimeout> | undefined;
-        const timeout = new Promise<undefined>(resolve => {
-                    timer = setTimeout(() => {
-                                    console.warn(`[bootstrap] ${label} 超时（${ms}ms），跳过`);
-                                    resolve(undefined);
-                    }, ms);
-        });
-        try {
-                    return await Promise.race([promise, timeout]);
-        } finally {
-                    if (timer) {
-                                    clearTimeout(timer);
-                    }
-        }
-}
 async function bootstrapImpl() {
-    await withTimeout(
-        SplashScreen.preventAutoHideAsync()
+    await SplashScreen.preventAutoHideAsync()
         .then(result =>
             console.log(
                 `SplashScreen.preventAutoHideAsync() succeeded: ${result}`,
             ),
         )
-            .catch(console.warn),
-        3000,
-            "SplashScreen.preventAutoHideAsync",
-            );
+        .catch(console.warn); // it's good to explicitly catch and inspect any error
     const logger = perfLogger();
     // 1. 检查权限（仅 Android 需要读写存储权限；iOS 为沙盒，无需申请）
     if (Platform.OS === "android") {
@@ -97,15 +77,14 @@ async function bootstrapImpl() {
 
     // 2. 数据初始化
     /** 初始化路径 */
-    await withTimeout(setupFolder(), 10000, "setupFolder");
+    await setupFolder();
     trace("文件夹初始化完成");
     logger.mark("文件夹初始化完成");
 
 
 
     // 加载配置
-    await withTimeout(
-        Promise.all([
+    await Promise.all([
         Config.setup().then(() => {
             logger.mark("Config");
         }),
@@ -115,19 +94,16 @@ async function bootstrapImpl() {
         musicHistory.setup().then(() => {
             logger.mark("musicHistory");
         }),
-        ]),
-        15000,
-            "配置初始化",
-            );
+    ]);
     trace("配置初始化完成");
     logger.mark("配置初始化完成");
 
     // 加载插件
-    await withTimeout(PluginManager.setup(), 15000, "插件初始化");
+    await PluginManager.setup();
     logger.mark("插件初始化完成");
     trace("插件初始化完成");
 
-    await withTimeout(initTrackPlayer(logger), 15000, "播放器初始化").catch(err => {
+    await initTrackPlayer(logger).catch(err => {
         // 初始化播放器出错，延迟初始化
         const bootstrapState = getDefaultStore().get(bootstrapAtom);
 
@@ -139,7 +115,7 @@ async function bootstrapImpl() {
         }
     });
 
-    await withTimeout(LocalMusicSheet.setup(), 10000, "本地音乐初始化");
+    await LocalMusicSheet.setup();
     trace("本地音乐初始化完成");
     logger.mark("本地音乐初始化完成");
 
@@ -174,46 +150,47 @@ async function setupFolder() {
 }
 
 export async function initTrackPlayer(logger?: IPerfLogger) {
-    // v5：setupPlayer 是同步的，且重复调用会被忽略（只打一条开发警告，
-    // 不抛错），所以不需要再捕捉“已初始化”的文案。
-    // 缓存大小从 v4 的顶层 maxCacheSize 改成 cache.maxSizeBytes；
-    // App 被从最近任务划掉后继续播放（v4 的
-    // AppKilledPlaybackBehavior.ContinuePlayback；v5 里默认值就是
-    // 'continue'，这里显式写出以保留原意）。
-    RNTrackPlayer.setupPlayer({
-        cache: {
-            maxSizeBytes:
+    try {
+        await RNTrackPlayer.setupPlayer({
+            maxCacheSize:
                 Config.getConfig("basic.maxCacheSize") ?? 1024 * 1024 * 512,
-        },
-        android: {
-            taskRemovedBehavior: "continue",
-        },
-    });
+        });
+    } catch (e: any) {
+        if (
+            e?.message !==
+            "The player has already been initialized via setupPlayer."
+        ) {
+            throw e;
+        }
+    }
     logger?.mark("加载播放器");
 
-    // v5：updateOptions 改名 setCommands，只剩一个 capabilities 列表
-    // （compact / notification 两个列表取消了；Seek 从 notificationCapabilities
-    // 并进来，保留通知栏进度条）。
-    // 删掉的项：icon（v5 不再支持自定义通知图标）、progressUpdateEventInterval
-    // （v5 没有原生进度间隔配置，进度靠轮询）、android.alwaysPauseOnInterruption
-    // （Media3 原生处理音频焦点，无等价配置）。
-    // iOS 没有可关闭的媒体通知，PlayerCommand.Stop 无对应系统按钮。
+    // iOS 没有可关闭的媒体通知，Capability.Stop 无对应系统按钮
     const capabilities = Platform.OS === "android" && Config.getConfig("basic.showExitOnNotification")
         ? [
-            PlayerCommand.PlayPause,
-            PlayerCommand.Next,
-            PlayerCommand.Previous,
-            PlayerCommand.Stop,
-            PlayerCommand.Seek,
+            Capability.Play,
+            Capability.Pause,
+            Capability.SkipToNext,
+            Capability.SkipToPrevious,
+            Capability.Stop,
         ]
         : [
-            PlayerCommand.PlayPause,
-            PlayerCommand.Next,
-            PlayerCommand.Previous,
-            PlayerCommand.Seek,
+            Capability.Play,
+            Capability.Pause,
+            Capability.SkipToNext,
+            Capability.SkipToPrevious,
         ];
-    RNTrackPlayer.setCommands({
-        capabilities,
+    await RNTrackPlayer.updateOptions({
+        icon: ImgAsset.logoTransparent,
+        progressUpdateEventInterval: 1,
+        android: {
+            alwaysPauseOnInterruption: true,
+            appKilledPlaybackBehavior:
+                AppKilledPlaybackBehavior.ContinuePlayback,
+        },
+        capabilities: capabilities,
+        compactCapabilities: capabilities,
+        notificationCapabilities: [...capabilities, Capability.SeekTo],
     });
     logger?.mark("播放器初始化完成");
     trace("播放器初始化完成");
@@ -331,16 +308,24 @@ function bindEvents() {
 }
 
 export default async function () {
-    // 兜底：无论初始化是否卡住，6 秒后一定隐藏开屏，避免永久白屏。
-    // （若 JS 在入口加载阶段就已失败，开屏由 index.js 的错误屏接管。）
-    const splashTimer = setTimeout(() => {
-        SplashScreen.hideAsync().catch(() => {});
+    // 兜底: 6 秒后无论如何隐藏开屏, 避免启动流程卡住时永久停留在开屏
+    // (卡住时应显示应用界面或报错, 而不是无限开屏)
+    let splashHidden = false;
+    const hideSplashOnce = () => {
+        if (splashHidden) {
+            return Promise.resolve();
+        }
+        splashHidden = true;
+        return SplashScreen.hideAsync().catch(() => {});
+    };
+    const splashTimeout = setTimeout(() => {
+        hideSplashOnce();
     }, 6000);
     try {
         getDefaultStore().set(bootstrapAtom, {
             "state": "Loading",
         });
-        await withTimeout(bootstrapImpl(), 30000, "bootstrapImpl");
+        await bootstrapImpl();
         bindEvents();
         getDefaultStore().set(bootstrapAtom, {
             "state": "Done",
@@ -353,9 +338,10 @@ export default async function () {
                 reason: e,
             });
         }
+    } finally {
+        clearTimeout(splashTimeout);
     }
-    clearTimeout(splashTimer);
     // 隐藏开屏动画
     console.log("HIDE");
-    await SplashScreen.hideAsync();
+    await hideSplashOnce();
 }

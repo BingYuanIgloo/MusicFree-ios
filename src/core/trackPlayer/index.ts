@@ -16,18 +16,19 @@ import {
 import Network from "@/utils/network";
 import PersistStatus from "@/utils/persistStatus";
 import { getQualityOrder } from "@/utils/qualities";
-import { musicIsPaused, State, toMusicState } from "@/utils/trackUtils";
+import { musicIsPaused } from "@/utils/trackUtils";
 import EventEmitter from "eventemitter3";
 import { produce } from "immer";
 import { atom, getDefaultStore, useAtomValue } from "jotai";
 import shuffle from "lodash.shuffle";
 import ReactNativeTrackPlayer, {
     Event,
-    MediaItem,
-    useIsPlaying,
+    State,
+    Track,
+    TrackMetadataBase,
     usePlaybackState,
     useProgress,
-} from "@rntp/player";
+} from "react-native-track-player";
 import LocalMusicSheet from "../localMusicSheet";
 
 import { TrackPlayerEvents } from "@/core.defination/trackPlayer";
@@ -46,20 +47,6 @@ const repeatModeAtom = atom<MusicRepeatMode>(MusicRepeatMode.QUEUE);
 const qualityAtom = atom<IMusic.IQualityKey>("standard");
 const playListAtom = atom<IMusic.IMusicItem[]>([]);
 
-/** MediaItem.url 可能是字符串或 {uri, headers} 对象，统一取字符串。 */
-function mediaUrlString(
-    url: MediaItem["url"] | null | undefined,
-): string | undefined {
-    if (typeof url === "string") {
-        return url;
-    }
-    if (url && typeof url === "object") {
-        const uri = (url as { uri?: string | number }).uri;
-        return typeof uri === "string" ? uri : undefined;
-    }
-    return undefined;
-}
-
 
 class TrackPlayer extends EventEmitter<{
     [TrackPlayerEvents.PlayEnd]: () => void;
@@ -76,8 +63,6 @@ class TrackPlayer extends EventEmitter<{
 
     // 当前播放的音乐下标
     private currentIndex = -1;
-    // v5 的 MediaItemTransition 不再带 lastIndex，fake 曲目判断需要自己记上一个下标
-    private lastActiveIndex = -1;
     // 音乐播放器服务是否启动
     private serviceInited = false;
     // 播放队列索引map
@@ -153,7 +138,7 @@ class TrackPlayer extends EventEmitter<{
 
         // 状态恢复
         if (rate) {
-            ReactNativeTrackPlayer.setPlaybackSpeed(+rate / 100);
+            ReactNativeTrackPlayer.setRate(+rate / 100);
         }
         if (repeatMode) {
             getDefaultStore().set(repeatModeAtom, repeatMode as MusicRepeatMode);
@@ -180,7 +165,7 @@ class TrackPlayer extends EventEmitter<{
                     track.headers = newSource?.headers || track.headers;
 
                     if (isSameMediaItem(this.currentMusic, track)) {
-                        await this.setTrackSource(track, false);
+                        await this.setTrackSource(track as Track, false);
                         if (progress) {
                             // 异步
                             this.seekTo(progress);
@@ -201,18 +186,12 @@ class TrackPlayer extends EventEmitter<{
              * 此事件可能会被触发多次（比如直接替换queue） 参考代码：https://github.com/doublesymmetry/KotlinAudio
              */
             ReactNativeTrackPlayer.addEventListener(
-                Event.MediaItemTransition,
+                Event.PlaybackActiveTrackChanged,
                 async evt => {
-                    // v5 的 MediaItemTransition 不再带 lastIndex / track：
-                    // 上一个下标由本类自己记录（lastActiveIndex），
-                    // 当前曲目在 evt.item 里。
-                    const prevIndex = this.lastActiveIndex;
-                    this.lastActiveIndex = evt.index;
                     if (
                         evt.index === 1 &&
-                        prevIndex === 0 &&
-                        mediaUrlString(evt.item?.url) ===
-                            TrackPlayer.fakeAudioUrl
+                        evt.lastIndex === 0 &&
+                        evt.track?.url === TrackPlayer.fakeAudioUrl
                     ) {
                         trace("队列末尾，播放下一首");
                         this.emit(TrackPlayerEvents.PlayEnd);
@@ -235,36 +214,22 @@ class TrackPlayer extends EventEmitter<{
                     errorLog("播放出错", e.message);
                     // WARNING: 不稳定，报错的时候有可能track已经变到下一首歌去了
                     const currentTrack =
-                        ReactNativeTrackPlayer.getActiveMediaItem();
-                    if (Boolean(currentTrack?.extras?.isInit)) {
-                        // HACK: 避免初始失败的情况：把 isInit 从 extras 里清掉，
-                        // 否则下一次报错还会走这条分支，永远不跳下一首。
-                        // v5 的 updateMetadata 只改展示字段，改不了 extras，
-                        // 所以用 replaceMediaItem 原位替换（曲目本身已出错，无打断）。
-                        ReactNativeTrackPlayer.replaceMediaItem(0, {
+                        await ReactNativeTrackPlayer.getActiveTrack();
+                    if (currentTrack?.isInit) {
+                        // HACK: 避免初始失败的情况
+                        ReactNativeTrackPlayer.updateMetadataForTrack(0, {
                             ...currentTrack,
-                            extras: {
-                                ...(currentTrack.extras ?? {}),
-                                isInit: undefined,
-                            },
+                            // @ts-ignore
+                            isInit: undefined,
                         });
                         return;
                     }
 
-                    const currentUrl = mediaUrlString(currentTrack?.url);
-                    // v4 用报错文案 "android-io-file-not-found" 排除本地文件缺失；
-                    // v5 的 code 已归一化（network/source/...），文案不再可靠，
-                    // 改为直接判断当前曲目是不是本地文件。
-                    const isLocalFile =
-                        !!currentUrl &&
-                        (currentUrl.startsWith("file://") ||
-                            currentUrl.startsWith("content://"));
                     if (
-                        currentUrl !== TrackPlayer.fakeAudioUrl &&
-                        currentUrl !== TrackPlayer.proposedAudioUrl &&
-                        ReactNativeTrackPlayer.getActiveMediaItemIndex() === 0 &&
+                        currentTrack?.url !== TrackPlayer.fakeAudioUrl && currentTrack?.url !== TrackPlayer.proposedAudioUrl &&
+                        (await ReactNativeTrackPlayer.getActiveTrackIndex()) === 0 &&
                         e.message &&
-                        !isLocalFile
+                        e.message !== "android-io-file-not-found"
                     ) {
                         trace("播放出错", {
                             message: e.message,
@@ -401,10 +366,9 @@ class TrackPlayer extends EventEmitter<{
             } else {
                 currentMusic = newPlayList[this.currentIndex % newPlayList.length];
                 try {
-                    const state = toMusicState(
-                        ReactNativeTrackPlayer.getPlaybackState(),
-                        ReactNativeTrackPlayer.isPlaying(),
-                    );
+                    const state = (
+                        await ReactNativeTrackPlayer.getPlaybackState()
+                    ).state;
                     shouldPlayCurrent = !musicIsPaused(state);
                 } catch {
                     shouldPlayCurrent = false;
@@ -422,7 +386,7 @@ class TrackPlayer extends EventEmitter<{
         if (shouldPlayCurrent === true) {
             await this.play(currentMusic, true);
         } else if (shouldPlayCurrent === false) {
-            await this.reset();
+            await ReactNativeTrackPlayer.reset();
         }
     }
 
@@ -450,42 +414,40 @@ class TrackPlayer extends EventEmitter<{
                 !LocalMusicSheet.isLocalMusic(musicItem) &&
                 !localPath
             ) {
-                await this.reset();
+                await ReactNativeTrackPlayer.reset();
                 throw new Error(PlayFailReason.FORBID_CELLUAR_NETWORK_PLAY);
             }
 
             // 2. 如果是当前正在播放的音频
             if (this.isCurrentMusic(musicItem)) {
-                // 获取底层播放器中的track（v5：getTrack 改成读整个队列，
-                // 再用 extras 里的 platform/id 还原成内部曲目对象做比对）
-                const currentTrack = ReactNativeTrackPlayer.getQueue()[0];
-                const currentTrackItem =
-                    this.mediaItemToMusicItem(currentTrack);
+                // 获取底层播放器中的track
+                const currentTrack = await ReactNativeTrackPlayer.getTrack(0);
                 // 2.1 如果当前有源
                 if (
-                    currentTrackItem &&
-                    mediaUrlString(currentTrack?.url) &&
-                    isSameMediaItem(musicItem, currentTrackItem)
+                    currentTrack?.url &&
+                    isSameMediaItem(
+                        musicItem,
+                        currentTrack as IMusic.IMusicItem,
+                    )
                 ) {
                     const currentActiveIndex =
-                        ReactNativeTrackPlayer.getActiveMediaItemIndex();
+                        await ReactNativeTrackPlayer.getActiveTrackIndex();
                     if (currentActiveIndex !== 0) {
-                        ReactNativeTrackPlayer.skipToIndex(0);
+                        await ReactNativeTrackPlayer.skip(0);
                     }
                     if (forcePlay) {
                         // 2.1.1 强制重新开始
                         await this.seekTo(0);
                     }
-                    const currentState = toMusicState(
-                        ReactNativeTrackPlayer.getPlaybackState(),
-                        ReactNativeTrackPlayer.isPlaying(),
-                    );
+                    const currentState = (
+                        await ReactNativeTrackPlayer.getPlaybackState()
+                    ).state;
                     if (currentState === State.Stopped) {
-                        await this.setTrackSource(currentTrackItem);
+                        await this.setTrackSource(currentTrack);
                     }
                     if (currentState !== State.Playing) {
                         // 2.1.2 恢复播放
-                        ReactNativeTrackPlayer.play();
+                        await ReactNativeTrackPlayer.play();
                     }
                     // 这种情况下，播放队列和当前歌曲都不需要变化
                     return;
@@ -501,16 +463,11 @@ class TrackPlayer extends EventEmitter<{
 
             // 4. 更新列表状态和当前音乐
             this.setCurrentMusic(musicItem);
-            // v5：setQueue 改名 setMediaItems；曲目对象先经 toMediaItem
-            // 转成 MediaItem（artwork/album → artworkUrl/albumTitle，
-            // headers 进 url 对象，.m3u8 标 mimeType）。
-            ReactNativeTrackPlayer.setMediaItems([
-                this.toMediaItem({
-                    ...musicItem,
-                    url: TrackPlayer.proposedAudioUrl,
-                }),
-                this.toMediaItem(this.getFakeNextTrack()),
-            ]);
+            await ReactNativeTrackPlayer.setQueue([{
+                ...musicItem,
+                url: TrackPlayer.proposedAudioUrl,
+                artwork: resolveImportedAssetOrPath(musicItem.artwork?.trim?.()?.length ? musicItem.artwork : ImgAsset.albumDefault) as unknown as any,
+            }, this.getFakeNextTrack()]);
 
             // 5. 获取音源
             let track: IMusic.IMusicItem;
@@ -605,8 +562,11 @@ class TrackPlayer extends EventEmitter<{
                 }
             }
 
-            // 6. 特殊类型源：.m3u8 在 toMediaItem 里标 mimeType
-            // 'application/x-mpegURL'（v5 的 MediaItem 没有 type 字段）。
+            // 6. 特殊类型源
+            if (getUrlExt(source.url) === ".m3u8") {
+                // @ts-ignore
+                source.type = "hls";
+            }
             // 7. 合并结果
             track = this.mergeTrackSource(musicItem, source) as IMusic.IMusicItem;
 
@@ -615,7 +575,7 @@ class TrackPlayer extends EventEmitter<{
 
             trace("获取音源成功", track);
             // 9. 设置音源
-            await this.setTrackSource(track);
+            await this.setTrackSource(track as Track);
 
             // 10. 获取补充信息
             let info: Partial<IMusic.IMusicItem> | null = null;
@@ -634,21 +594,18 @@ class TrackPlayer extends EventEmitter<{
             if (info && this.isCurrentMusic(musicItem)) {
                 const mergedTrack = this.mergeTrackSource(track, info);
                 getDefaultStore().set(currentMusicAtom, mergedTrack as IMusic.IMusicItem);
-                ReactNativeTrackPlayer.updateMetadata(
+                await ReactNativeTrackPlayer.updateMetadataForTrack(
                     0,
-                    this.toMediaMetadata(mergedTrack),
+                    mergedTrack as TrackMetadataBase,
                 );
             }
         } catch (e: any) {
             const message = e?.message;
             if (
-                typeof message === "string" &&
-                /setupPlayer|not initialized/i.test(message)
+                message ===
+                "The player is not initialized. Call setupPlayer first."
             ) {
-                // v5 不再抛 v4 那句固定文案；只要报错提到 setupPlayer /
-                // 未初始化，就重建一次播放器再重试（v5 的 setupPlayer
-                // 重复调用会被忽略，不会抛“已初始化”）。
-                ReactNativeTrackPlayer.setupPlayer();
+                await ReactNativeTrackPlayer.setupPlayer();
                 this.play(musicItem, forcePlay);
             } else if (message === PlayFailReason.FORBID_CELLUAR_NETWORK_PLAY) {
                 if (getCurrentDialog()?.name !== "SimpleDialog") {
@@ -680,7 +637,7 @@ class TrackPlayer extends EventEmitter<{
         this.setPlayList([]);
         this.setCurrentMusic(null);
 
-        await this.reset();
+        await ReactNativeTrackPlayer.reset();
         PersistStatus.set("music.musicItem", undefined);
         PersistStatus.set("music.progress", 0);
     }
@@ -718,7 +675,7 @@ class TrackPlayer extends EventEmitter<{
             return false;
         }
         try {
-            const progress = ReactNativeTrackPlayer.getProgress();
+            const progress = await ReactNativeTrackPlayer.getProgress();
             const plugin = this.pluginManagerService.getByMedia(musicItem);
             const newSource = await plugin?.methods?.getMediaSource(
                 musicItem,
@@ -728,15 +685,11 @@ class TrackPlayer extends EventEmitter<{
                 throw new Error(PlayFailReason.INVALID_SOURCE);
             }
             if (this.isCurrentMusic(musicItem)) {
-                const playingState = toMusicState(
-                    ReactNativeTrackPlayer.getPlaybackState(),
-                    ReactNativeTrackPlayer.isPlaying(),
-                );
+                const playingState = (
+                    await ReactNativeTrackPlayer.getPlaybackState()
+                ).state;
                 await this.setTrackSource(
-                    this.mergeTrackSource(
-                        musicItem,
-                        newSource,
-                    ) as IMusic.IMusicItem,
+                    this.mergeTrackSource(musicItem, newSource) as unknown as Track,
                     !musicIsPaused(playingState),
                 );
 
@@ -782,18 +735,10 @@ class TrackPlayer extends EventEmitter<{
         return ReactNativeTrackPlayer.seekTo(progress);
     }
 
-    // v5 的 getter / setter 都是同步的；接口要求 Promise，包一层 async。
-    getProgress = async () => ReactNativeTrackPlayer.getProgress();
-    getRate = async () => ReactNativeTrackPlayer.getPlaybackSpeed();
-    setRate = async (rate: number) => {
-        ReactNativeTrackPlayer.setPlaybackSpeed(rate);
-    };
-    // v5 没有 reset()：stop 停播并回到开头 + clear 清空队列，
-    // 等价于 v4 reset()（定时关闭等处依赖它）。
-    reset = async () => {
-        ReactNativeTrackPlayer.stop();
-        ReactNativeTrackPlayer.clear();
-    };
+    getProgress = ReactNativeTrackPlayer.getProgress;
+    getRate = ReactNativeTrackPlayer.getRate;
+    setRate = ReactNativeTrackPlayer.setRate;
+    reset = ReactNativeTrackPlayer.reset;
 
 
     /**************** 辅助函数 -- 设置内部状态 ****************/
@@ -837,12 +782,10 @@ class TrackPlayer extends EventEmitter<{
         }
 
         getDefaultStore().set(repeatModeAtom, mode);
-        // 更新下一首歌的信息（队列第 2 项即 fake 曲目）。
-        // 注意：本 App 从不用原生 repeat mode（循环全靠 fake 曲目机制），
-        // 所以这里不需要调 v5 的 setRepeatMode。
-        ReactNativeTrackPlayer.updateMetadata(
+        // 更新下一首歌的信息
+        ReactNativeTrackPlayer.updateMetadataForTrack(
             1,
-            this.toMediaMetadata(this.getFakeNextTrack()),
+            this.getFakeNextTrack(),
         );
         // 记录
         PersistStatus.set("music.repeatMode", mode);
@@ -854,19 +797,16 @@ class TrackPlayer extends EventEmitter<{
     }
 
     // 设置音源
-    private async setTrackSource(track: IMusic.IMusicItem, autoPlay = true) {
-        const mediaItem = this.toMediaItem(track);
-        if (!mediaItem) {
+    private async setTrackSource(track: Track, autoPlay = true) {
+        const clonedTrack = this.patchMediaArtwork(track);
+        if (!clonedTrack) {
             return;
         }
-        ReactNativeTrackPlayer.setMediaItems([
-            mediaItem,
-            this.toMediaItem(this.getFakeNextTrack()),
-        ]);
-        PersistStatus.set("music.musicItem", track);
+        await ReactNativeTrackPlayer.setQueue([clonedTrack, this.getFakeNextTrack()]);
+        PersistStatus.set("music.musicItem", track as IMusic.IMusicItem);
         PersistStatus.set("music.progress", 0);
         if (autoPlay) {
-            ReactNativeTrackPlayer.play();
+            await ReactNativeTrackPlayer.play();
         }
     }
 
@@ -936,15 +876,15 @@ class TrackPlayer extends EventEmitter<{
         });
     }
 
-    private getFakeNextTrack(): IMusic.IMusicItem {
-        let track: IMusic.IMusicItem | null;
+    private getFakeNextTrack() {
+        let track: Track | undefined;
         const repeatMode = this.repeatMode;
         if (repeatMode === MusicRepeatMode.SINGLE) {
             // 单曲循环
-            track = this.getPlayListMusicAt(this.currentIndex);
+            track = this.getPlayListMusicAt(this.currentIndex) as Track;
         } else {
             // 下一曲
-            track = this.getPlayListMusicAt(this.currentIndex + 1);
+            track = this.getPlayListMusicAt(this.currentIndex + 1) as Track;
         }
 
         if (track) {
@@ -958,7 +898,7 @@ class TrackPlayer extends EventEmitter<{
             return {
                 url: TrackPlayer.fakeAudioUrl,
                 $: internalFakeSoundKey,
-            } as IMusic.IMusicItem;
+            } as Track;
         }
     }
 
@@ -1037,85 +977,17 @@ class TrackPlayer extends EventEmitter<{
     }
 
 
-    /**
-     * 把 App 内部的曲目对象转成 v5 的 MediaItem。
-     * v4 是把 IMusicItem 直接当 Track 用的（字段名 artwork / album /
-     * headers / type）；v5 的字段名不同，必须显式映射：
-     * - artwork → artworkUrl，album → albumTitle
-     *   （artwork 不能为 null，部分情况下不能是 ImageSource 类型，
-     *   所以这里和原来一样先经 resolveImportedAssetOrPath 解析）
-     * - headers 放进 url 对象 {uri, headers}
-     * - .m3u8 → mimeType 'application/x-mpegURL'（v4 的 type: "hls"）
-     * - platform / id / isInit / $ 只存在于 extras 里：原生侧只存
-     *   MediaItem 的定型字段，读回时靠 extras 还原比对。
-     */
-    private toMediaItem(item: IMusic.IMusicItem): MediaItem {
-        const rawUrl = item.url ?? "";
-        const headers = (item as any).headers as
-            | Record<string, string>
-            | undefined;
-        const isHls =
-            getUrlExt(rawUrl) === ".m3u8" || (item as any).type === "hls";
-        return {
-            ...this.toMediaMetadata(item),
-            mediaId:
-                rawUrl === TrackPlayer.fakeAudioUrl
-                    ? TrackPlayer.fakeAudioUrl
-                    : `${item.platform}:${item.id}`,
-            url: headers ? { uri: rawUrl, headers } : rawUrl,
-            duration: item.duration,
-            mimeType: isHls ? "application/x-mpegURL" : undefined,
-            extras: {
-                platform: item.platform,
-                id: item.id,
-                isInit: (item as any).isInit ?? undefined,
-                isFake:
-                    (item as any).$ === internalFakeSoundKey
-                        ? true
-                        : undefined,
-            },
-        };
-    }
-
-    /** 从曲目对象取 v5 updateMetadata 接受的四个展示字段。 */
-    private toMediaMetadata(item: IMusic.IMusicItem): {
-        title?: string;
-        artist?: string;
-        albumTitle?: string;
-        artworkUrl?: MediaItem["artworkUrl"];
-    } {
-        return {
-            title: item.title,
-            artist: item.artist,
-            albumTitle: item.album,
-            artworkUrl: resolveImportedAssetOrPath(
-                item.artwork?.trim?.()?.length
-                    ? item.artwork
-                    : ImgAsset.albumDefault,
-            ) as unknown as MediaItem["artworkUrl"],
-        };
-    }
-
-    /**
-     * 把 v5 读回的 MediaItem 还原成 App 内部的曲目对象
-     *（仅用于比对 / 重设音源；platform / id 存在 extras 里）。
-     */
-    private mediaItemToMusicItem(
-        item: MediaItem | null | undefined,
-    ): IMusic.IMusicItem | null {
-        if (!item) {
+    private patchMediaArtwork(track: Track) {
+        // Bug: React native track player 在设置音频时，artwork不能为null，并且部分情况下artwork不能为ImageSource类型
+        if (!track) {
             return null;
         }
         return {
-            id: (item.extras?.id as string) ?? "",
-            platform: (item.extras?.platform as string) ?? "",
-            url: mediaUrlString(item.url) ?? "",
-            title: item.title ?? "",
-            artist: item.artist ?? "",
-            album: item.albumTitle ?? "",
-            artwork: item.artworkUrl as unknown as string,
-            duration: item.duration ?? 0,
-        } as IMusic.IMusicItem;
+            ...track,
+            artwork: resolveImportedAssetOrPath(
+                track.artwork?.trim?.()?.length ? track.artwork : ImgAsset.albumDefault,
+            ) as unknown as any,
+        };
     }
 
 }
@@ -1125,12 +997,9 @@ export const useCurrentMusic = () => useAtomValue(currentMusicAtom);
 export const useRepeatMode = () => useAtomValue(repeatModeAtom);
 export const useMusicQuality = () => useAtomValue(qualityAtom);
 export function useMusicState() {
-    // v5 的 usePlaybackState() 直接返回 PlaybackState（没有 .state），
-    // 且“是否在播”要另外看 useIsPlaying()；两者一起映射回 v4 语义的 State。
     const playbackState = usePlaybackState();
-    const isPlaying = useIsPlaying();
 
-    return toMusicState(playbackState, isPlaying);
+    return playbackState.state;
 }
 export { State as MusicState, useProgress };
 

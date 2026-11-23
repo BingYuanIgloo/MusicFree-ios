@@ -1,4 +1,5 @@
 import getOrCreateMMKV from "@/utils/getOrCreateMMKV.ts";
+import { InteractionManager } from "react-native";
 import { SortType } from "@/constants/commonConst.ts";
 import { safeParse, safeStringify } from "@/utils/jsonUtil";
 
@@ -9,10 +10,10 @@ function getStorageData(key: string) {
 }
 
 async function setStorageData(key: string, value: any) {
-        // RN 0.88 已从 react-native 核心移除 InteractionManager（生产包里是 undefined，
-    // 调用 runAfterInteractions 会启动崩溃）。MMKV 写入本身很快，直接同步写。
+    return InteractionManager.runAfterInteractions(() => {
         const mmkv = getOrCreateMMKV(`LocalSheet.${key}`);
         mmkv.set("data", safeStringify(value));
+    });
 }
 
 function removeStorageData(key: string) {
