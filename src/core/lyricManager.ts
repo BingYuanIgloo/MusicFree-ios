@@ -10,7 +10,6 @@ import { Plugin } from "./pluginManager";
 
 import pathConst from "@/constants/pathConst";
 import {
-    areLyricsLiveActivitiesEnabled,
     endLyricsLiveActivity,
     isLyricsLiveActivityActive,
     startLyricsLiveActivity,
@@ -120,10 +119,10 @@ class LyricManager implements IInjectable {
             endLyricsLiveActivity();
             return;
         }
-        if (!areLyricsLiveActivitiesEnabled()) {
-            return;
-        }
-
+        // 不再用 areActivitiesEnabled() 挡门：系统开关关着时原生
+        // Activity.request 会直接失败（已在原生侧捕获打印），
+        // 开关开着时这里必须放行，不能因授权查询返回 false 就
+        // 静默跳过，否则歌词永远推不到灵动岛。
         const showTranslation = PersistStatus.get("lyric.showTranslation");
         const formatLine = (item: IParsedLrcItem | null | undefined) =>
             (item?.lrc ?? "") +
