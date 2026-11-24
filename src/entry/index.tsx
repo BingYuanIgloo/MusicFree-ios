@@ -40,7 +40,13 @@ export default function Pages() {
         <ErrorBoundary>
             <BootstrapComponent />
             <ReducedMotionConfig mode={ReduceMotion.Never} />
-            <GestureHandlerRootView style={globalStyle.flex1}>
+            <GestureHandlerRootView
+                style={[
+                    globalStyle.flex1,
+                    // 根容器底色必须跟原生开屏一致 (#282828)：开屏隐藏到
+                    // PageBackground 挂载之间若是默认白色，会闪一下白屏。
+                    { backgroundColor: "#282828" },
+                ]}>
                 <SafeAreaProvider>
                     <NavigationContainer theme={theme}>
                         <PageBackground />
