@@ -70,3 +70,6 @@ export default function Pages() {
                     </NavigationContainer>
                 </SafeAreaProvider>
             </GestureHandlerRootView>
+        </ErrorBoundary>
+    );
+}
