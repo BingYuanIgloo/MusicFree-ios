@@ -75,3 +75,63 @@ jobs:
           name: MusicFree-unsigned-ipa
           path: ios/MusicFree-unsigned.ipa
           retention-days: 14
+
+  simulator-smoke-test:
+    needs: build-ios
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'yarn'
+
+      - name: Install yarn 1.22
+        run: npm install -g yarn@1.22.22
+
+      - name: Install JS dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Copy Live Activity module into widget-extension pod
+        run: |
+          if [ -d node_modules/react-native-widget-extension/ios ]; then
+            cp ios/MusicFreeWidgets/Module.swift ios/MusicFreeWidgets/Attributes.swift node_modules/react-native-widget-extension/ios/
+          fi
+
+      - name: Install CocoaPods
+        run: |
+          cd ios
+          pod install
+
+      - name: Build for simulator
+        run: |
+          cd ios
+          xcodebuild -workspace MusicFree.xcworkspace -scheme MusicFree -configuration Release -sdk iphonesimulator CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" -derivedDataPath build-sim
+
+      - name: Boot simulator, launch app, screenshot home
+        run: |
+          set -x
+          DEVICE=$(xcrun simctl list devices available | grep -m1 "iPhone 16" | sed -E 's/.*\(([A-F0-9-]+)\).*/\1/')
+          if [ -z "$DEVICE" ]; then
+            DEVICE=$(xcrun simctl list devices available | grep -m1 "iPhone" | sed -E 's/.*\(([A-F0-9-]+)\).*/\1/')
+          fi
+          echo "Using simulator: $DEVICE"
+          xcrun simctl boot "$DEVICE" || true
+          xcrun simctl bootstatus "$DEVICE" -b
+          APP_PATH=$(find ios/build-sim/Build/Products/Release-iphonesimulator -name "*.app" -maxdepth 1 | head -1)
+          echo "App: $APP_PATH"
+          xcrun simctl install "$DEVICE" "$APP_PATH"
+          BUNDLE_ID=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP_PATH/Info.plist")
+          echo "Bundle ID: $BUNDLE_ID"
+          xcrun simctl launch "$DEVICE" "$BUNDLE_ID"
+          sleep 15
+          mkdir -p sim-shots
+          xcrun simctl io "$DEVICE" screenshot sim-shots/01-home.png
+          ls -la sim-shots/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: simulator-screenshots
+          path: sim-shots/
+          retention-days: 14
