@@ -18,18 +18,23 @@ import { ReduceMotion, ReducedMotionConfig } from "react-native-reanimated";
 import { routes } from "@/core/router/routes.tsx";
 import ErrorBoundary from "@/components/errorBoundary";
 
+
 /**
  * 字体颜色
  */
 
+
 StatusBar.setBackgroundColor("transparent");
 StatusBar.setTranslucent(true);
+
 
 bootstrap();
 const Stack = createNativeStackNavigator<any>();
 
+
 export default function Pages() {
     const theme = Theme.useTheme();
+
 
     return (
         <ErrorBoundary>
@@ -44,7 +49,10 @@ export default function Pages() {
                             screenOptions={{
                                 headerShown: false,
                                 animation: "slide_from_right",
-                                animationDuration: 100,
+                                contentStyle: {
+                                    flex: 1,
+                                    width: "100%",
+                                },
                             }}>
                             {routes.map(route => (
                                 <Stack.Screen
@@ -62,6 +70,3 @@ export default function Pages() {
                     </NavigationContainer>
                 </SafeAreaProvider>
             </GestureHandlerRootView>
-        </ErrorBoundary>
-    );
-}
