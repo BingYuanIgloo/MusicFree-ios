@@ -2,6 +2,9 @@
  * @format
  */
 
+import * as SplashScreen from 'expo-splash-screen';
+SplashScreen.preventAutoHideAsync().catch(() => {});
+
 import {AppRegistry} from 'react-native';
 import {name as appName} from './app.json';
 import TrackPlayer from 'react-native-track-player';
