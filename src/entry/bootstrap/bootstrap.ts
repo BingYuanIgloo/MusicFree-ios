@@ -38,13 +38,6 @@ MusicSheet.injectDependencies(Config);
 
 
 async function bootstrapImpl() {
-    await SplashScreen.preventAutoHideAsync()
-        .then(result =>
-            console.log(
-                `SplashScreen.preventAutoHideAsync() succeeded: ${result}`,
-            ),
-        )
-        .catch(console.warn); // it's good to explicitly catch and inspect any error
     const logger = perfLogger();
     // 1. 检查权限（仅 Android 需要读写存储权限；iOS 为沙盒，无需申请）
     if (Platform.OS === "android") {
