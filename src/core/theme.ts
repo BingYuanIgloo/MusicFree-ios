@@ -10,7 +10,7 @@ export const lightTheme = {
     ..._DefaultTheme,
     colors: {
         ..._DefaultTheme.colors,
-        background: "transparent",
+        background: "#fafafa",
         text: "#333333",
         textSecondary: Color("#333333").alpha(0.7).toString(),
         primary: "#f17d34",
@@ -39,7 +39,7 @@ export const darkTheme = {
     ..._DarkTheme,
     colors: {
         ..._DarkTheme.colors,
-        background: "transparent",
+        background: "#202020",
         text: "#fcfcfc",
         textSecondary: Color("#fcfcfc").alpha(0.7).toString(),
         primary: "#3FA3B5",
