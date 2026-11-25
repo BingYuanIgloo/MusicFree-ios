@@ -37,7 +37,7 @@ public class ReactNativeWidgetExtensionModule: Module {
                 nextLine: String,
                 startedAtMs: Double,
                 durationSec: Double
-            ) -> Void in
+            ) -> Bool in
             if #available(iOS 16.2, *) {
                 let startedAt = Date(timeIntervalSince1970: startedAtMs / 1000)
                 let attributes = LyricsLiveActivityAttributes(
@@ -63,16 +63,20 @@ public class ReactNativeWidgetExtensionModule: Module {
                     Task {
                         await activity.update(activityContent)
                     }
-                    return
+                    return true
                 }
 
                 do {
                     let activity = try Activity.request(
                         attributes: attributes, content: activityContent)
                     print("[LyricsLiveActivity] started \(activity.id)")
+                    return true
                 } catch {
                     print("[LyricsLiveActivity] start failed: \(error)")
+                    return false
                 }
+            } else {
+                return false
             }
         }
 
