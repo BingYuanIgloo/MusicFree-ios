@@ -11,9 +11,7 @@ import { Plugin } from "./pluginManager";
 import pathConst from "@/constants/pathConst";
 import {
     endLyricsLiveActivity,
-    isLyricsLiveActivityActive,
     startLyricsLiveActivity,
-    updateLyricsLiveActivity,
 } from "@/core/liveActivityLyrics";
 import { checkAndCreateDir } from "@/utils/fileUtils";
 import PersistStatus from "@/utils/persistStatus";
@@ -138,23 +136,16 @@ class LyricManager implements IInjectable {
             Date.now() - (this.lastProgress.position || 0) * 1000;
         const durationSec = this.lastProgress.duration || 0;
 
-        if (isLyricsLiveActivityActive()) {
-            updateLyricsLiveActivity(
-                currentLine,
-                nextLine,
-                startedAtMs,
-                durationSec,
-            );
-        } else {
-            startLyricsLiveActivity(
-                musicItem.title,
-                musicItem.artist,
-                currentLine,
-                nextLine,
-                startedAtMs,
-                durationSec,
-            );
-        }
+        // 每次都走 start：原生 startActivity 已在内部处理“已有活动则更新”，
+        // 且失败后下次行变化会重新 start，不会像 update 分支那样永久卡死。
+        startLyricsLiveActivity(
+            musicItem.title,
+            musicItem.artist,
+            currentLine,
+            nextLine,
+            startedAtMs,
+            durationSec,
+        );
     }
 
     associateLyric(musicItem: IMusic.IMusicItem, linkToMusicItem: ICommon.IMediaBase) {
