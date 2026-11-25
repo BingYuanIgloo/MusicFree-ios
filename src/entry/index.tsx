@@ -11,6 +11,7 @@ import Debug from "@/components/debug";
 import { PortalHost } from "@/components/base/portal";
 import globalStyle from "@/constants/globalStyle";
 import Theme from "@/core/theme";
+import useColors from "@/hooks/useColors";
 import { BootstrapComponent } from "./bootstrap/BootstrapComponent";
 import { ToastBaseComponent } from "@/components/base/toast";
 import { StatusBar } from "react-native";
@@ -34,6 +35,7 @@ const Stack = createNativeStackNavigator<any>();
 
 export default function Pages() {
     const theme = Theme.useTheme();
+    const colors = useColors();
 
 
     return (
@@ -43,9 +45,9 @@ export default function Pages() {
             <GestureHandlerRootView
                 style={[
                     globalStyle.flex1,
-                    // 根容器底色必须跟原生开屏一致 (#282828)：开屏隐藏到
-                    // PageBackground 挂载之间若是默认白色，会闪一下白屏。
-                    { backgroundColor: "#282828" },
+                    // 根容器底色取主题的 pageBackground，与最终应用面同色，
+                    // 开屏藏起后、PageBackground 挂载前那一瞬不再有中间色闪。
+                    { backgroundColor: colors?.pageBackground ?? "#fafafa" },
                 ]}>
                 <SafeAreaProvider>
                     <NavigationContainer theme={theme}>
