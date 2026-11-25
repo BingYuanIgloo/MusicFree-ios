@@ -32,7 +32,7 @@ interface IWidgetExtensionModule {
         nextLine: string,
         startedAtMs: number,
         durationSec: number,
-    ) => void;
+    ) => boolean;
     updateActivity: (
         currentLine: string,
         nextLine: string,
@@ -97,7 +97,9 @@ export function startLyricsLiveActivity(
         return;
     }
     try {
-        mod.startActivity(
+        // 原生返回 true 才算真的启动成功；返回 false 说明
+        // Activity.request 失败，下次行变化会重新 start，不卡死。
+        const ok = mod.startActivity(
             title,
             artist,
             truncate(currentLine),
@@ -105,8 +107,12 @@ export function startLyricsLiveActivity(
             startedAtMs,
             Math.max(durationSec, 0),
         );
-        activityActive = true;
-        lastSentLine = currentLine;
+        if (ok) {
+            activityActive = true;
+            lastSentLine = currentLine;
+        } else {
+            activityActive = false;
+        }
     } catch {
         activityActive = false;
     }
