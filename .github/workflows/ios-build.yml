@@ -51,7 +51,7 @@ jobs:
       - name: Build unsigned IPA
         run: |
           cd ios
-          xcodebuild -workspace MusicFree.xcworkspace -scheme MusicFree -configuration Release -sdk iphoneos CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" -derivedDataPath build
+          xcodebuild -workspace MusicFree.xcworkspace -scheme MusicFreeNew -configuration Release -sdk iphoneos CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" -derivedDataPath build
           APP_PATH=$(find build/Build/Products/Release-iphoneos -name "*.app" -maxdepth 1 | head -1)
           echo "Built app: $APP_PATH"
           mkdir -p Payload
@@ -107,7 +107,7 @@ jobs:
       - name: Build for simulator
         run: |
           cd ios
-          xcodebuild -workspace MusicFree.xcworkspace -scheme MusicFree -configuration Release -sdk iphonesimulator CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" -derivedDataPath build-sim
+          xcodebuild -workspace MusicFree.xcworkspace -scheme MusicFreeNew -configuration Release -sdk iphonesimulator CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" -derivedDataPath build-sim
 
       - name: Boot simulator, launch app, screenshot home
         run: |
