@@ -1,0 +1,31 @@
+name: Sync upstream dev (one-off)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sync-dev:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Sync upstream dev into dev-0.6.3, keep run29 fixes
+        run: |
+          set -euxo pipefail
+          git config user.name "Muse sync"
+          git config user.email "muse-sync@local"
+          git remote add upstream https://github.com/maotoumao/MusicFree.git
+          git fetch upstream dev --depth 1
+          git checkout -b dev-0.6.3 upstream/dev
+          git checkout master -- .github/workflows/ios-build.yml src/core/theme.ts src/core/liveActivityLyrics.ts src/core/lyricManager.ts src/pages/setting/index.tsx src/entry/index.tsx src/entry/bootstrap/bootstrap.ts index.js ios/MusicFree/SplashScreen.storyboard ios/MusicFreeWidgets/Module.swift
+          sed -i 's/axios.defaults.timeout = 2000;/axios.defaults.timeout = 30000;/' src/core/pluginManager/plugin.ts
+          grep -q "axios.defaults.timeout = 30000;" src/core/pluginManager/plugin.ts
+          git add -A
+          git status --short | head -60
+          git commit -m "sync upstream dev 0.6.3-beta.1; keep ios-build workflow, run29 fixes, 30s plugin timeout"
+          git push origin dev-0.6.3
