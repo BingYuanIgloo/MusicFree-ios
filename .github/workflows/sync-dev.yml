@@ -5,7 +5,6 @@ on:
 
 permissions:
   contents: write
-  workflows: write
 
 jobs:
   sync-dev:
@@ -23,7 +22,7 @@ jobs:
           git remote add upstream https://github.com/maotoumao/MusicFree.git
           git fetch upstream dev --depth 1
           git checkout -b dev-0.6.3 upstream/dev
-          git checkout master -- .github/workflows/ios-build.yml src/core/theme.ts src/core/liveActivityLyrics.ts src/core/lyricManager.ts src/pages/setting/index.tsx src/entry/index.tsx src/entry/bootstrap/bootstrap.ts index.js ios/MusicFree/SplashScreen.storyboard ios/MusicFreeWidgets/Module.swift
+          git checkout master -- .github/workflows/ios-build.yml  .github/workflows/build-beta.yml src/core/theme.ts src/core/liveActivityLyrics.ts src/core/lyricManager.ts src/pages/setting/index.tsx src/entry/index.tsx src/entry/bootstrap/bootstrap.ts index.js ios/MusicFree/SplashScreen.storyboard ios/MusicFreeWidgets/Module.swift
           sed -i 's/axios.defaults.timeout = 2000;/axios.defaults.timeout = 30000;/' src/core/pluginManager/plugin.ts
           grep -q "axios.defaults.timeout = 30000;" src/core/pluginManager/plugin.ts
           git add -A
