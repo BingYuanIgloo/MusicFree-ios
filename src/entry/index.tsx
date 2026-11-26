@@ -11,6 +11,7 @@ import Debug from "@/components/debug";
 import { PortalHost } from "@/components/base/portal";
 import globalStyle from "@/constants/globalStyle";
 import Theme from "@/core/theme";
+import useColors from "@/hooks/useColors";
 import { BootstrapComponent } from "./bootstrap/BootstrapComponent";
 import { ToastBaseComponent } from "@/components/base/toast";
 import { StatusBar } from "react-native";
@@ -18,35 +19,48 @@ import { ReduceMotion, ReducedMotionConfig } from "react-native-reanimated";
 import { routes } from "@/core/router/routes.tsx";
 import ErrorBoundary from "@/components/errorBoundary";
 
+
 /**
  * 字体颜色
  */
 
+
 StatusBar.setBackgroundColor("transparent");
 StatusBar.setTranslucent(true);
+
 
 bootstrap();
 const Stack = createNativeStackNavigator<any>();
 
+
 export default function Pages() {
     const theme = Theme.useTheme();
+    const colors = useColors();
+
 
     return (
         <ErrorBoundary>
             <BootstrapComponent />
             <ReducedMotionConfig mode={ReduceMotion.Never} />
-            <GestureHandlerRootView style={globalStyle.flex1}>
+            <GestureHandlerRootView
+                style={[
+                    globalStyle.flex1,
+                    // 根容器底色取主题的 pageBackground，与最终应用面同色，
+                    // 开屏藏起后、PageBackground 挂载前那一瞬不再有中间色闪。
+                    { backgroundColor: colors?.pageBackground ?? "#fafafa" },
+                ]}>
                 <SafeAreaProvider>
-                    <NavigationContainer 
-                        theme={theme}
-                    >
+                    <NavigationContainer theme={theme}>
                         <PageBackground />
                         <Stack.Navigator
                             initialRouteName={routes[0].path}
                             screenOptions={{
                                 headerShown: false,
                                 animation: "slide_from_right",
-                                animationDuration: 100,
+                                contentStyle: {
+                                    flex: 1,
+                                    width: "100%",
+                                },
                             }}>
                             {routes.map(route => (
                                 <Stack.Screen

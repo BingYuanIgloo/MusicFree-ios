@@ -9,13 +9,16 @@ import { atom, getDefaultStore, useAtomValue } from "jotai";
 import { Plugin } from "./pluginManager";
 
 import pathConst from "@/constants/pathConst";
-import LyricUtil from "@/native/lyricUtil";
+import {
+    endLyricsLiveActivity,
+    startLyricsLiveActivity,
+} from "@/core/liveActivityLyrics";
 import { checkAndCreateDir } from "@/utils/fileUtils";
 import PersistStatus from "@/utils/persistStatus";
 import CryptoJs from "crypto-js";
 import { unlink, writeFile } from "react-native-fs";
 import RNTrackPlayer, { Event } from "react-native-track-player";
-import { TrackPlayerEvents } from "@/constants/trackPlayerConst";
+import { TrackPlayerEvents } from "@/core.defination/trackPlayer";
 import { IPluginManager } from "@/types/core/pluginManager";
 
 
@@ -44,6 +47,9 @@ class LyricManager implements IInjectable {
 
     private lyricParser: LyricParser | null = null;
 
+    /** 最近一次进度事件的位置/总时长（用来算灵动岛进度条的开始时间）。 */
+    private lastProgress = { position: 0, duration: 0 };
+
 
     get currentLyricItem() {
         return getDefaultStore().get(currentLyricItemAtom);
@@ -63,18 +69,13 @@ class LyricManager implements IInjectable {
         // 更新歌词
         this.trackPlayer.on(TrackPlayerEvents.CurrentMusicChanged, (musicItem) => {
             this.refreshLyric(true, true);
-
-            if (this.appConfig.getConfig("lyric.showStatusBarLyric")) {
-                if (musicItem) {
-                    LyricUtil.setStatusBarLyricText(
-                        `${musicItem.title} - ${musicItem.artist}`,);
-                } else {
-                    LyricUtil.setStatusBarLyricText("MusicFree");
-                }
-            }
         });
 
         RNTrackPlayer.addEventListener(Event.PlaybackProgressUpdated, evt => {
+            this.lastProgress = {
+                position: evt.position ?? 0,
+                duration: evt.duration ?? this.lastProgress.duration,
+            };
             const parser = this.lyricParser;
             if (!parser || !this.trackPlayer.isCurrentMusic(parser.musicItem)) {
                 return;
@@ -87,39 +88,64 @@ class LyricManager implements IInjectable {
             if (currentLyricItem?.lrc !== newLyricItem?.lrc) {
                 // 更新当前歌词状态
                 getDefaultStore().set(currentLyricItemAtom, newLyricItem ?? null);
-
-                // 更新状态栏歌词
-                const showTranslation = PersistStatus.get("lyric.showTranslation");
-
-                if (this.appConfig.getConfig("lyric.showStatusBarLyric")) {
-                    LyricUtil.setStatusBarLyricText(
-                        (newLyricItem?.lrc ?? "") +
-                        (showTranslation
-                            ? `\n${newLyricItem?.translation ?? ""}`
-                            : ""),
-                    );
-                }
             }
         });
 
-
-        if (this.appConfig.getConfig("lyric.showStatusBarLyric")) {
-            const statusBarLyricConfig = {
-                topPercent: this.appConfig.getConfig("lyric.topPercent"),
-                leftPercent: this.appConfig.getConfig("lyric.leftPercent"),
-                align: this.appConfig.getConfig("lyric.align"),
-                color: this.appConfig.getConfig("lyric.color"),
-                backgroundColor: this.appConfig.getConfig("lyric.backgroundColor"),
-                widthPercent: this.appConfig.getConfig("lyric.widthPercent"),
-                fontSize: this.appConfig.getConfig("lyric.fontSize"),
-            };
-            LyricUtil.showStatusBarLyric(
-                "MusicFree",
-                statusBarLyricConfig ?? {}
-            );
-        }
+        // 歌词行一变就同步一次灵动岛（currentLyricItemAtom 只在行文本
+        // 变化时更新，所以这里天然就是“行变化才推”，不会每秒都推）。
+        getDefaultStore().sub(currentLyricItemAtom, () => {
+            this.syncLiveActivity();
+        });
 
         this.refreshLyric(true);
+    }
+
+    /**
+     * 把当前歌词行同步到灵动岛 / 锁屏 Live Activity。
+     * 开关关着、没在播、无歌词行、系统关了 Live Activities 时，
+     * 结束活动（如果有）。设置页和歌词面板的开关也调这个方法，
+     * 这样开关当时就能立即生效，不用等下一行歌词。
+     */
+    syncLiveActivity() {
+        if (!this.appConfig.getConfig("lyric.showStatusBarLyric")) {
+            endLyricsLiveActivity();
+            return;
+        }
+        const musicItem = this.trackPlayer.currentMusic;
+        const currentLyricItem = getDefaultStore().get(currentLyricItemAtom);
+        if (!musicItem || !currentLyricItem) {
+            endLyricsLiveActivity();
+            return;
+        }
+        // 不再用 areActivitiesEnabled() 挡门：系统开关关着时原生
+        // Activity.request 会直接失败（已在原生侧捕获打印），
+        // 开关开着时这里必须放行，不能因授权查询返回 false 就
+        // 静默跳过，否则歌词永远推不到灵动岛。
+        const showTranslation = PersistStatus.get("lyric.showTranslation");
+        const formatLine = (item: IParsedLrcItem | null | undefined) =>
+            (item?.lrc ?? "") +
+            (showTranslation && item?.translation
+                ? `\n${item.translation}`
+                : "");
+
+        const currentLine = formatLine(currentLyricItem);
+        const items = this.lyricParser?.getLyricItems() ?? [];
+        const nextLine = formatLine(items[currentLyricItem.index + 1]);
+
+        const startedAtMs =
+            Date.now() - (this.lastProgress.position || 0) * 1000;
+        const durationSec = this.lastProgress.duration || 0;
+
+        // 每次都走 start：原生 startActivity 已在内部处理“已有活动则更新”，
+        // 且失败后下次行变化会重新 start，不会像 update 分支那样永久卡死。
+        startLyricsLiveActivity(
+            musicItem.title,
+            musicItem.artist,
+            currentLine,
+            nextLine,
+            startedAtMs,
+            durationSec,
+        );
     }
 
     associateLyric(musicItem: IMusic.IMusicItem, linkToMusicItem: ICommon.IMediaBase) {
@@ -240,10 +266,6 @@ class LyricManager implements IInjectable {
             hasTranslation: false,
         });
         getDefaultStore().set(currentLyricItemAtom, null);
-        if (this.appConfig.getConfig("lyric.showStatusBarLyric")) {
-            const musicItem = this.trackPlayer.currentMusic;
-            LyricUtil.setStatusBarLyricText(musicItem ? `${musicItem.title} - ${musicItem.artist}` : "MusicFree");
-        }
     }
 
     private async refreshLyric(skipFetchLyricSourceIfSame: boolean = true, ignoreProgress: boolean = false) {
@@ -310,20 +332,6 @@ class LyricManager implements IInjectable {
 
             const currentLyric = ignoreProgress ? (this.lyricParser.getLyricItems()?.[0] ?? null) : this.lyricParser.getPosition((await this.trackPlayer.getProgress()).position);
             getDefaultStore().set(currentLyricItemAtom, currentLyric || null);
-
-            if (this.appConfig.getConfig("lyric.showStatusBarLyric")) {
-                if (currentLyric) {
-                    LyricUtil.setStatusBarLyricText(
-                        (currentLyric?.lrc ?? "") +
-                        (this.lyricParser.hasTranslation
-                            ? `\n${currentLyric?.translation ?? ""}`
-                            : ""),
-                    );
-                } else {
-                    const musicItem = this.trackPlayer.currentMusic;
-                    LyricUtil.setStatusBarLyricText(musicItem ? `${musicItem.title} - ${musicItem.artist}` : "MusicFree");
-                }
-            }
         } catch (err) {
             if (this.trackPlayer.isCurrentMusic(currentMusicItem)) {
                 this.lyricParser = null;

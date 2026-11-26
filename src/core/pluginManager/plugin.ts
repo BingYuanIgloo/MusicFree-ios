@@ -33,7 +33,7 @@ import _internalPluginMeta from "./meta";
 import { IPluginManager } from "@/types/core/pluginManager";
 
 
-axios.defaults.timeout = 2000;
+axios.defaults.timeout = 30000;
 axios.interceptors.response.use((response) => {
     // 统一setcookie格式，nodejs环境是数组，移动端环境都放在第一个元素
     const setCookie = response.headers["set-cookie"];
