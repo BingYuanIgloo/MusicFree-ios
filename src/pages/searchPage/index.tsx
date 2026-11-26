@@ -17,12 +17,14 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import StatusBar from "@/components/base/statusBar";
 import NoPlugin from "../../components/base/noPlugin";
 import { useI18N } from "@/core/i18n";
+import useStableTopInset from "@/hooks/useStableTopInset";
 
 export default function () {
     const [pageStatus, setPageStatus] = useAtom(pageStatusAtom);
     const setQuery = useSetAtom(queryAtom);
     const setSearchResultsState = useSetAtom(searchResultsAtom);
     const { t } = useI18N();
+    const topInset = useStableTopInset();
 
     useEffect(() => {
         setSearchResultsState(initSearchResults);
@@ -33,7 +35,7 @@ export default function () {
     }, []);
 
     return (
-        <SafeAreaView edges={["bottom", "top"]} style={style.wrapper}>
+        <SafeAreaView edges={["bottom"]} style={[style.wrapper, { paddingTop: topInset }]}>
             <StatusBar />
             <NavBar />
             <SafeAreaView edges={["left", "right"]} style={style.wrapper}>
