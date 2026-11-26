@@ -1,0 +1,80 @@
+name: Restore MusicFreeWidgets extension from master
+
+# One-off: upstream dev 0.6.3-beta.1 deleted the whole Live Activity widget
+# extension (react-native-widget-extension dep, Podfile target, the
+# MusicFreeWidgets Xcode target, and 4 of its 5 source files), so a build of
+# dev-0.6.3 produces an app with no MusicFreeWidgets.appex and fails the
+# "Verify app and Live Activity extension" step. This workflow transplants
+# the extension back from master onto dev-0.6.3.
+#
+# Run order (do this first, via the GitHub web UI):
+#   1. Add .github/scripts/restore-widget-extension.py (the restore script)
+#      to branch dev-0.6.3.
+#   2. Add this workflow file to branch dev-0.6.3.
+#   3. Dispatch this workflow (workflow_dispatch, no inputs).
+#
+# The workflow only pushes non-workflow files (project.pbxproj,
+# package.json, yarn.lock, ios/Podfile, ios/MusicFreeWidgets/*), so the
+# default GITHUB_TOKEN (contents: write) is sufficient. It never touches
+# any file under .github/workflows/.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  restore-widget-extension:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out dev-0.6.3
+        uses: actions/checkout@v4
+        with:
+          ref: dev-0.6.3
+          fetch-depth: 0
+
+      - name: Fetch master
+        run: git fetch origin master:master
+
+      - name: Restore extension source files from master
+        run: |
+          git checkout master -- \
+            ios/MusicFreeWidgets/Attributes.swift \
+            ios/MusicFreeWidgets/Info.plist \
+            ios/MusicFreeWidgets/LyricsLiveActivity.swift \
+            ios/MusicFreeWidgets/MusicFreeWidgets.entitlements
+
+      - name: Run restore script (pbxproj + package.json + yarn.lock + Podfile)
+        run: python3 .github/scripts/restore-widget-extension.py
+
+      - name: Verify the restore
+        run: |
+          grep -q "MusicFreeWidgets" ios/MusicFree.xcodeproj/project.pbxproj
+          grep -q "Embed Foundation Extensions" ios/MusicFree.xcodeproj/project.pbxproj
+          test -f ios/MusicFreeWidgets/Attributes.swift
+          test -f ios/MusicFreeWidgets/Info.plist
+          test -f ios/MusicFreeWidgets/LyricsLiveActivity.swift
+          test -f ios/MusicFreeWidgets/MusicFreeWidgets.entitlements
+          grep -q "react-native-widget-extension" package.json
+          grep -q "react-native-widget-extension" yarn.lock
+          grep -q "target 'MusicFreeWidgets'" ios/Podfile
+          git status --short
+          git diff --stat
+
+      - name: Commit and push to dev-0.6.3
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add \
+            ios/MusicFree.xcodeproj/project.pbxproj \
+            package.json \
+            yarn.lock \
+            ios/Podfile \
+            ios/MusicFreeWidgets/
+          if git diff --cached --quiet; then
+            echo "nothing to commit"
+            exit 0
+          fi
+          git commit -m "restore MusicFreeWidgets Live Activity extension from master"
+          git push origin dev-0.6.3
