@@ -1,4 +1,40 @@
 const timeReg = /\[[\d:.]+\]/g;
+// 歌词杂符号清理：只保留中英文语法里出现的字符。
+// 保留：所有字母、变音符号、数字、空白，以及下面这些歌词里有意义的标点。
+// 用户白名单（2026-11-28）：撇号 '、逗号 ,、句号 .、感叹号 !、问号 ?、
+// 星号 *（歌词打码靠它，删掉就半句看不懂）。用户又补了一句让我自己
+// 定：再留几个歌词里确实有用的——省略号 …（拖尾）、破折号 — –（停顿）、
+// 中圆点 ·（外国人名里的分隔，如约翰·列侬）、顿号 、（中文并列）。
+// 其余一律删：^ ` | \ < > { } 引号、冒号、分号、括号、斜杠、
+// @ # $ % & + = _ ~ 等。
+const LYRIC_PUNCT = "'\u2019,\uff0c\u3001.\u3002\uff0e!\uff01?\uff1f*\uff0a\u2026\u2014\u2013\u00b7";
+
+let LYRIC_CLEAN_RE: RegExp | null = null;
+try {
+    const punct = LYRIC_PUNCT.replace(/([\]\\^-])/g, "\\$1");
+    LYRIC_CLEAN_RE = new RegExp(
+        `[^\\p{L}\\p{M}\\p{N}\\p{Z}${punct}]`,
+        "gu",
+    );
+} catch {
+    LYRIC_CLEAN_RE = null;
+}
+
+export function cleanLyricLine(line: string): string {
+    if (!line) {
+        return line;
+    }
+    // 先去掉控制字符和零宽字符
+    let s = line.replace(/[\u0000-\u001F\u007F\u200B\u200C\u200D\uFEFF]/g, "");
+    if (LYRIC_CLEAN_RE) {
+        s = s.replace(LYRIC_CLEAN_RE, "");
+    } else {
+        // 旧引擎不支持 \\p{...} 时的兜底：只删已知的杂符号
+        s = s.replace(/[\^`|\\<>{}\u266a\u266b]/g, "");
+    }
+    return s;
+}
+
 const metaReg = /\[(.+):(.+)\]/g;
 
 type LyricMeta = Record<string, any>;
@@ -208,7 +244,7 @@ export default class LyricParser {
                 ++counter;
                 rawLrcs.shift();
             }
-            lrc = rawLrcs[0]?.trim?.() ?? "";
+            lrc = cleanLyricLine(rawLrcs[0]?.trim?.() ?? "");
             for (j = i; j < i + counter; ++j) {
                 rawLrcItems.push({
                     time: this.parseTime(rawTimes[j]),
@@ -233,7 +269,7 @@ export default class LyricParser {
         if (lrcItems.length === 0 && raw.length) {
             lrcItems = raw.split("\n").map((_, index) => ({
                 time: 0,
-                lrc: _,
+                lrc: cleanLyricLine(_),
                 index,
             }));
         }

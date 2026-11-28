@@ -33,7 +33,7 @@ export default function Background() {
                 ]}
             />
             <Image
-                style={[style.blur, { opacity: theme.dark ? 0.5 : 0.15 }]}
+                style={[style.blur, { opacity: theme.dark ? 0.5 : 0.35 }]}
                 blurRadius={50}
                 source={artworkSource}
             />

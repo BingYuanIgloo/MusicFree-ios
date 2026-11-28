@@ -46,6 +46,12 @@ const currentLyricItemAtom = atom<IParsedLrcItem | null>(null);
 // 歌词时，用这个兜底顶上，不让已经显示过的歌词凭空消失。
 const fallbackLyricStore = getOrCreateMMKV("lyric.fallbackCache");
 
+// 灵动岛后台同步用的歌词数据（MMKV，headless service 也能读）。
+// 主线程在歌词解析好后把当前歌的 items + 标题/作者/偏移写进来，
+// 后台 service 按进度算当前行推给灵动岛（主线程切后台会被挂起，
+// 歌词行就停在原地不动）。无歌词时清掉，避免后台推旧歌词。
+const liveActivityLyricStore = getOrCreateMMKV("lyric.liveActivity");
+
 function loadFallbackLyric(
     musicItem: IMusic.IMusicItem,
 ): ILyric.ILyricSource | null {
@@ -168,6 +174,12 @@ class LyricManager implements IInjectable {
                 this.lastPlaybackPlaying = false;
                 this.syncLiveActivity();
             }
+        });
+
+        // 播完最后一首（队列结束）也要收掉灵动岛，不然锁屏会留一首
+        // 卡在最后的歌；再重播时旧活动还占着，歌词就推不出来了。
+        RNTrackPlayer.addEventListener(Event.PlaybackQueueEnded, () => {
+            endLyricsLiveActivity();
         });
 
         // 回到前台时用最新进度重新同步一次（打开软件歌词不刷新的根因：
@@ -367,6 +379,11 @@ class LyricManager implements IInjectable {
             hasTranslation: false,
         });
         getDefaultStore().set(currentLyricItemAtom, null);
+        try {
+            liveActivityLyricStore.delete("current");
+        } catch {
+            // 清不掉也不影响主流程
+        }
     }
 
     private async refreshLyric(skipFetchLyricSourceIfSame: boolean = true, ignoreProgress: boolean = false) {
@@ -457,6 +474,26 @@ class LyricManager implements IInjectable {
 
             const currentLyric = ignoreProgress ? (this.lyricParser.getLyricItems()?.[0] ?? null) : this.lyricParser.getPosition((await this.trackPlayer.getProgress()).position);
             getDefaultStore().set(currentLyricItemAtom, currentLyric || null);
+
+            // 写一份给后台 service：歌词行 + 标题/作者/偏移，
+            // 供后台按进度推灵动岛。
+            try {
+                liveActivityLyricStore.set(
+                    "current",
+                    JSON.stringify({
+                        title: currentMusicItem.title,
+                        artist: currentMusicItem.artist,
+                        offset: this.lyricParser.getMeta()?.offset ?? 0,
+                        items: this.lyricParser.getLyricItems().map((it) => ({
+                            time: it.time,
+                            lrc: it.lrc,
+                            translation: it.translation ?? "",
+                        })),
+                    }),
+                );
+            } catch {
+                // 写失败不影响主流程
+            }
         } catch (err) {
             if (this.trackPlayer.isCurrentMusic(currentMusicItem)) {
                 this.lyricParser = null;
