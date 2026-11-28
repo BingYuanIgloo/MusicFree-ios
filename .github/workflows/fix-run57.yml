@@ -1,0 +1,22 @@
+name: Fix run57 (one-off)
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: master
+          fetch-depth: 0
+      - name: Apply run57 fixes
+        run: python3 .github/scripts/fix-run57.py .
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --quiet || git commit -m "run57 fix: lyrics + Dynamic Island lifecycle - immediate dismissal clears lock screen, fresh activity on song change, headless ends island when lyric data is gone"
+          git push origin master
