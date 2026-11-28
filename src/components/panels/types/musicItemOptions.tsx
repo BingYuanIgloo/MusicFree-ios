@@ -290,7 +290,7 @@ export default function MusicItemOptions(props: IMusicItemOptionsProps) {
                     <Divider />
                     <View style={style.wrapper}>
                         <FlatList
-                            data={options}
+                            data={options.filter(_ => _.show !== false)}
                             getItemLayout={(_, index) => ({
                                 length: ITEM_HEIGHT,
                                 offset: ITEM_HEIGHT * index,

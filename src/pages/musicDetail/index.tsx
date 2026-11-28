@@ -11,9 +11,11 @@ import Lyric from "./components/content/lyric";
 import NavBar from "./components/navBar";
 import Config from "@/core/appConfig";
 import { activateKeepAwakeAsync, deactivateKeepAwake } from "expo-keep-awake";
+import useStableTopInset from "@/hooks/useStableTopInset";
 
 export default function MusicDetail() {
     const orientation = useOrientation();
+    const topInset = useStableTopInset();
 
     useEffect(() => {
         const needAwake = Config.getConfig("basic.musicDetailAwake");
@@ -30,7 +32,7 @@ export default function MusicDetail() {
     return (
         <>
             <Background />
-            <SafeAreaView style={globalStyle.fwflex1}>
+            <SafeAreaView edges={["bottom"]} style={[globalStyle.fwflex1, { paddingTop: topInset }]}>
                 <StatusBar backgroundColor={"transparent"} />
                 <View style={style.bodyWrapper}>
                     <View style={globalStyle.flex1}>

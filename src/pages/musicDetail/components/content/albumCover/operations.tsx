@@ -17,9 +17,11 @@ import Icon from "@/components/base/icon.tsx";
 import PluginManager from "@/core/pluginManager";
 import downloader from "@/core/downloader";
 import i18n from "@/core/i18n";
+import useColors from "@/hooks/useColors";
 
 export default function Operations() {
     const musicItem = useCurrentMusic();
+    const colors = useColors();
     const currentQuality = useMusicQuality();
     const isDownloaded = LocalMusicSheet.useIsLocal(musicItem);
 
@@ -63,7 +65,7 @@ export default function Operations() {
             <Icon
                 name={isDownloaded ? "check-circle-outline" : "arrow-down-tray"}
                 size={iconSizeConst.normal}
-                color="white"
+                color={colors.text}
                 onPress={() => {
                     if (musicItem && !isDownloaded) {
                         showPanel("MusicQuality", {
@@ -97,7 +99,7 @@ export default function Operations() {
             <Icon
                 name="chat-bubble-oval-left-ellipsis"
                 size={iconSizeConst.normal}
-                color="white"
+                color={colors.text}
                 opacity={supportComment ? 1 : 0.2}
                 onPress={() => {
                     if (!supportComment) {
@@ -114,7 +116,7 @@ export default function Operations() {
             <Icon
                 name="ellipsis-vertical"
                 size={iconSizeConst.normal}
-                color="white"
+                color={colors.text}
                 onPress={() => {
                     if (musicItem) {
                         showPanel("MusicItemOptions", {

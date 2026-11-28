@@ -8,6 +8,7 @@ import HorizontalSafeAreaView from "@/components/base/horizontalSafeAreaView.tsx
 import AppBar from "@/components/base/appBar";
 import { useI18N } from "@/core/i18n";
 import useColors from "@/hooks/useColors";
+import useStableTopInset from "@/hooks/useStableTopInset";
 
 export default function Setting() {
     const { type } = useParams<"setting">();
@@ -15,9 +16,10 @@ export default function Setting() {
 
     const { t } = useI18N();
     const colors = useColors();
+    const topInset = useStableTopInset();
 
     return (
-        <SafeAreaView edges={["bottom", "top"]} style={[style.wrapper, { backgroundColor: colors?.pageBackground ?? "#fafafa" }]}>
+        <SafeAreaView edges={["bottom"]} style={[style.wrapper, { backgroundColor: colors?.pageBackground ?? "#fafafa", paddingTop: topInset }]}>
             <StatusBar />
             {settingItem.showNav === false ? null : (
                 <AppBar>{t(settingItem.i18nKey as any)}</AppBar>
