@@ -224,7 +224,7 @@ class Downloader extends EventEmitter<IEvents> implements IInjectable {
                 const qualityOrder = getQualityOrder(
                     nextTask.quality ??
                     this.configService.getConfig("basic.defaultDownloadQuality") ??
-                    "standard",
+                    "super",
                     this.configService.getConfig("basic.downloadQualityOrder") ?? "asc",
                 );
                 let data: IPlugin.IMediaSourceResult | null = null;

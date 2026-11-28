@@ -80,13 +80,7 @@ export default function Operations() {
                 color={colors.text}
                 onPress={() => {
                     if (musicItem && !isDownloaded) {
-                        showPanel("MusicQuality", {
-                            type: "download",
-                            musicItem,
-                            async onQualityPress(quality) {
-                                downloader.download(musicItem, quality);
-                            },
-                        });
+                        downloader.download(musicItem);
                     }
                 }}
             />

@@ -129,13 +129,8 @@ export default function MusicItemOptions(props: IMusicItemOptionsProps) {
             title: t("common.download"),
             show: !downloaded,
             onPress: async () => {
-                showPanel("MusicQuality", {
-                    musicItem,
-                    type: "download",
-                    async onQualityPress(quality) {
-                        downloader.download(musicItem, quality);
-                    },
-                });
+                downloader.download(musicItem);
+                hidePanel();
             },
         },
         {
