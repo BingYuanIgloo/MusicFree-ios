@@ -11,7 +11,6 @@ import { Plugin } from "./pluginManager";
 
 import pathConst from "@/constants/pathConst";
 import {
-    clearNowPlayingInfo,
     endLyricsLiveActivity,
     startLyricsLiveActivity,
 } from "@/core/liveActivityLyrics";
@@ -243,10 +242,9 @@ class LyricManager implements IInjectable {
         }
         const startedAtMs = Date.now() - position * 1000;
 
-        // 每次同步都清一次系统 Now Playing：播放器切歌 / 改状态时
-        // 会重设 NowPlayingInfo，系统音频岛就又冒出来；清掉它，
-        // 歌词岛才是唯一的岛。
-        clearNowPlayingInfo();
+        // 不再清系统 Now Playing：清掉它会把锁屏媒体卡也清空
+        //（只剩一个空播放框，没有封面/歌名）。歌词岛本身就是
+        // 唯一的岛（原生 startActivity 只更新已有活动，不再新建）。
 
         // 每次都走 start：原生 startActivity 已在内部处理“已有活动则更新”，
         // 且失败后下次行变化会重新 start，不会像 update 分支那样永久卡死。

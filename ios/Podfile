@@ -54,6 +54,9 @@ prepare_react_native_project!
 target 'MusicFree' do
   use_expo_modules!
 
+  # 本地原生模块：苹果文件管理器保存（下载 / 备份导出用）。
+  pod 'FileSaver', :path => './FileSaver'
+
   if ENV['EXPO_USE_COMMUNITY_AUTOLINKING'] == '1'
     config_command = ['node', '-e', "process.argv=['', '', 'config'];require('@react-native-community/cli').run()"];
   else

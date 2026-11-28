@@ -1,4 +1,5 @@
 import { requireOptionalNativeModule } from "expo-modules-core";
+import { NativeModules } from "react-native";
 
 /**
  * 灵动岛歌词（Live Activity）的 JS 桥。
@@ -16,7 +17,6 @@ import { requireOptionalNativeModule } from "expo-modules-core";
  *   startActivity(title, artist, currentLine, nextLine, startedAtMs, durationSec, isPlaying)
  *   updateActivity(currentLine, nextLine, startedAtMs, durationSec, isPlaying)
  *   endActivity()
- *   clearNowPlayingInfo()
  *
  * 调用节奏：只在歌词行变化时 update（iOS 18 起应用内更新会被
  * 节流到约 5–15 秒一次，逐行推已经是最省的打法）；切歌时
@@ -43,7 +43,6 @@ interface IWidgetExtensionModule {
         isPlaying: boolean,
     ) => void;
     endActivity: () => void;
-    clearNowPlayingInfo: () => void;
 }
 
 const MAX_LINE_LENGTH = 150;
@@ -61,6 +60,22 @@ function getModule(): IWidgetExtensionModule | null {
             ) ?? null;
     } catch {
         cachedModule = null;
+    }
+    // 后台 headless 任务里 Expo 的模块注册表不一定可用，
+    // requireOptionalNativeModule 会返回 null，导致后台歌词
+    // 同步静默失败（歌词卡住、只在切回前台才刷新）。
+    // 退到经典 NativeModules 桥：原生模块在 headless 任务里
+    // 同样注册着，可以直接拿到。
+    if (!cachedModule) {
+        try {
+            const nm = (NativeModules as Record<string, unknown>)
+                .ReactNativeWidgetExtension as
+                | IWidgetExtensionModule
+                | undefined;
+            cachedModule = nm ?? null;
+        } catch {
+            cachedModule = null;
+        }
     }
     return cachedModule;
 }
@@ -185,16 +200,6 @@ export function endLyricsLiveActivity(): void {
         lastSentIsPlaying = false;
     }
 }
-
-/** 清掉系统 Now Playing，让系统不再单独占一个音频灵动岛。 */
-export function clearNowPlayingInfo(): void {
-    try {
-        getModule()?.clearNowPlayingInfo();
-    } catch {
-        // 模块缺失时静默 no-op。
-    }
-}
-
 /** 当前有没有在跑的歌词活动（JS 侧记录的状态）。 */
 export function isLyricsLiveActivityActive(): boolean {
     return activityActive;

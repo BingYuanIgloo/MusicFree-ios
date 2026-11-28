@@ -69,11 +69,11 @@ interface IBackgroundInfo {
     opacity?: number;
 }
 
-const themeStore = new GlobalState(darkTheme);
+const themeStore = new GlobalState(lightTheme);
 const backgroundStore = new GlobalState<IBackgroundInfo | null>(null);
 
 function setup() {
-    const currentTheme = Config.getConfig("theme.selectedTheme") ?? "p-dark";
+    const currentTheme = Config.getConfig("theme.selectedTheme") ?? "p-light";
 
     if (currentTheme === "p-dark") {
         themeStore.setValue(darkTheme);

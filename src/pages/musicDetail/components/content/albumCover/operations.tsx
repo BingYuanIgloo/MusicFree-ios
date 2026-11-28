@@ -1,10 +1,10 @@
 import React, { useMemo } from "react";
-import { Image, Pressable, StyleSheet, View } from "react-native";
+import { Pressable, StyleSheet, View } from "react-native";
 import rpx from "@/utils/rpx";
 
 import LocalMusicSheet from "@/core/localMusicSheet";
 import { ROUTE_PATH } from "@/core/router";
-import { ImgAsset } from "@/constants/assetsConst";
+import ThemeText from "@/components/base/themeText";
 import Toast from "@/utils/toast";
 import toast from "@/utils/toast";
 import useOrientation from "@/hooks/useOrientation";
@@ -19,6 +19,14 @@ import downloader from "@/core/downloader";
 import i18n from "@/core/i18n";
 import useColors from "@/hooks/useColors";
 
+// 音质单字（原来是白色 PNG 图，浅色下看不清；改成文字后跟主题变色）。
+const qualityShortText: Record<string, string> = {
+    low: "低",
+    standard: "标",
+    high: "高",
+    super: "超",
+};
+
 export default function Operations() {
     const musicItem = useCurrentMusic();
     const colors = useColors();
@@ -26,6 +34,11 @@ export default function Operations() {
     const isDownloaded = LocalMusicSheet.useIsLocal(musicItem);
 
     const rate = PersistStatus.useValue("music.rate", 100);
+    const rateValue = rate ?? 100;
+    const rateText =
+        rateValue % 100 === 0
+            ? `${rateValue / 100}.0x`
+            : `${rateValue / 100}x`;
     const orientation = useOrientation();
 
     const supportComment = useMemo(() => {
@@ -57,10 +70,9 @@ export default function Operations() {
                         },
                     });
                 }}>
-                <Image
-                    source={ImgAsset.quality[currentQuality]}
-                    style={styles.quality}
-                />
+                <ThemeText fontSize="title" fontWeight="semibold">
+                    {qualityShortText[currentQuality]}
+                </ThemeText>
             </Pressable>
             <Icon
                 name={isDownloaded ? "check-circle-outline" : "arrow-down-tray"}
@@ -94,7 +106,9 @@ export default function Operations() {
                         },
                     });
                 }}>
-                <Image source={ImgAsset.rate[rate!]} style={styles.quality} />
+                <ThemeText fontSize="title" fontWeight="semibold">
+                    {rateText}
+                </ThemeText>
             </Pressable>
             <Icon
                 name="chat-bubble-oval-left-ellipsis"
@@ -141,9 +155,5 @@ const styles = StyleSheet.create({
     },
     horizontalWrapper: {
         marginBottom: 0,
-    },
-    quality: {
-        width: rpx(52),
-        height: rpx(52),
     },
 });

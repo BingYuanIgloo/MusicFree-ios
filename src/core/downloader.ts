@@ -16,6 +16,8 @@ import { useEffect, useState } from "react";
 import { copyFile, downloadFile, exists, unlink } from "react-native-fs";
 import LocalMusicSheet from "./localMusicSheet";
 import { IPluginManager } from "@/types/core/pluginManager";
+import Toast from "@/utils/toast";
+import { saveFileToFiles } from "@/utils/saveToFiles";
 
 
 export enum DownloadStatus {
@@ -340,7 +342,16 @@ class Downloader extends EventEmitter<IEvents> implements IInjectable {
             });
 
             this.markTaskAsCompleted(musicItem);
+
+            // 下完弹出苹果文件管理器（Save 按钮，自选目录）：
+            // asCopy，App 自己那份还在 download/music/，离线播放不受影响。
+            try {
+                await saveFileToFiles(targetDownloadPath.replace(/^file:\/\//, ""));
+            } catch {
+                // 弹不出也不影响已下载的文件本身。
+            }
         } catch (e: any) {
+            Toast.warn("下载失败，无法获取到这首歌");
             this.markTaskAsError(musicItem, DownloadFailReason.Unknown, e);
         }
 
@@ -360,11 +371,13 @@ class Downloader extends EventEmitter<IEvents> implements IInjectable {
 
     download(musicItems: IMusic.IMusicItem | IMusic.IMusicItem[], quality?: IMusic.IQualityKey) {
         if (network.isOffline) {
+            Toast.warn("当前无网络，无法下载");
             this.emit(DownloaderEvent.DownloadError, DownloadFailReason.NetworkOffline);
             return;
         }
 
         if (network.isCellular && !this.configService.getConfig("basic.useCelluarNetworkDownload")) {
+            Toast.warn("当前为移动网络，已在设置中禁止移动网络下载");
             this.emit(DownloaderEvent.DownloadError, DownloadFailReason.NotAllowToDownloadInCellular);
             return;
         }
@@ -400,6 +413,8 @@ class Downloader extends EventEmitter<IEvents> implements IInjectable {
         if (!musicItems.length) {
             return;
         }
+
+        Toast.success("已开始下载，完成后会弹出文件管理器让你选保存位置");
 
         // 添加进任务队列
         const downloadQueue = getDefaultStore().get(downloadQueueAtom);

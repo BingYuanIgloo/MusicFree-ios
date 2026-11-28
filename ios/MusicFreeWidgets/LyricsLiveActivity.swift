@@ -9,7 +9,8 @@ import SwiftUI
 /// if / ViewThatFits / .id，系统自己做交叉淡入淡出，避免行切换时闪烁。
 /// 单岛模式：歌词岛就是播放器，长按展开页和锁屏横幅都带播放按钮
 ///（上一首 / 播放暂停 / 下一首），经 URL Scheme 回调主 App。
-/// 系统音频岛由 Module.clearNowPlayingInfo() 清掉，不再单独出现。
+/// 不再清系统 Now Playing：清掉它会把锁屏媒体卡也清空
+///（只剩空播放框）。歌词岛本身就是唯一的岛。
 @main
 struct MusicFreeWidgetsBundle: WidgetBundle {
     var body: some Widget {
@@ -46,7 +47,9 @@ struct LyricsLiveActivity: Widget {
                 )
                 // 播放控制：上一首 / 播放暂停 / 下一首。点按经 URL Scheme
                 // 回主 App（见 liveActivityLinking.ts），不直接操作音频。
-                HStack(spacing: 28) {
+                // 居中（QQ/网易云式）：按钮组占满整行宽度再居中，
+                // 否则 HStack 跟着外层 leading 对齐，全挤在左边。
+                HStack(spacing: 32) {
                     Link(destination: URL(string: "com.anonymous.musicfree://liveactivity/previous")!) {
                         Image(systemName: "backward.fill")
                             .font(.system(size: 18))
@@ -60,7 +63,8 @@ struct LyricsLiveActivity: Widget {
                             .font(.system(size: 18))
                     }
                 }
-                .padding(.top, 6)
+                .frame(maxWidth: .infinity, alignment: .center)
+                .padding(.top, 8)
             }
             .padding(12)
             .activityBackgroundTint(.black.opacity(0.35))
@@ -93,7 +97,8 @@ struct LyricsLiveActivity: Widget {
                             .lineLimit(1)
                 // 播放控制：上一首 / 播放暂停 / 下一首。点按经 URL Scheme
                 // 回主 App（见 liveActivityLinking.ts），不直接操作音频。
-                HStack(spacing: 28) {
+                // 居中（QQ/网易云式）：按钮组占满整行宽度再居中。
+                HStack(spacing: 32) {
                     Link(destination: URL(string: "com.anonymous.musicfree://liveactivity/previous")!) {
                         Image(systemName: "backward.fill")
                             .font(.system(size: 18))
@@ -107,7 +112,8 @@ struct LyricsLiveActivity: Widget {
                             .font(.system(size: 18))
                     }
                 }
-                .padding(.top, 6)
+                .frame(maxWidth: .infinity, alignment: .center)
+                .padding(.top, 8)
                     }
                 }
             } compactLeading: {

@@ -1,6 +1,5 @@
 import ExpoModulesCore
 import ActivityKit
-import MediaPlayer
 
 /// 暴露给 JS 的原生模块（react-native-widget-extension 的 Module.swift）。
 ///
@@ -53,9 +52,10 @@ public class ReactNativeWidgetExtensionModule: Module {
                     duration: max(durationSec, 0),
                     isPlaying: isPlaying
                 )
-                // 30 分钟后标记为过期：App 异常退出时系统能及时收起活动。
+                // 2 分钟后标记为过期：App 被杀掉后灵动岛很快消失；
+                // 活着时每次歌词更新都会把过期时间往后推，不会误杀。
                 let staleDate = Calendar.current.date(
-                    byAdding: .minute, value: 30, to: Date()
+                    byAdding: .minute, value: 2, to: Date()
                 )
                 let activityContent = ActivityContent(
                     state: contentState, staleDate: staleDate)
@@ -100,8 +100,13 @@ public class ReactNativeWidgetExtensionModule: Module {
                     duration: max(durationSec, 0),
                     isPlaying: isPlaying
                 )
+                // 更新也带 2 分钟过期时间：App 被杀掉后不再更新，
+                // 活动很快过期消失；活着时下次更新会续期。
+                let staleDate = Calendar.current.date(
+                    byAdding: .minute, value: 2, to: Date()
+                )
                 let updatedContent = ActivityContent(
-                    state: contentState, staleDate: nil)
+                    state: contentState, staleDate: staleDate)
 
                 Task {
                     for activity in Activity<LyricsLiveActivityAttributes>.activities {
@@ -119,15 +124,6 @@ public class ReactNativeWidgetExtensionModule: Module {
                     }
                 }
             }
-        }
-
-        /// 把系统 Now Playing（MPNowPlayingInfoCenter）清掉，系统就
-        /// 不再单独占一个音频灵动岛。歌词岛自己带播放按钮，就是
-        /// 唯一的岛；锁屏上歌词 Live Activity 横幅（带按钮）顶上
-        /// 系统媒体控制。播放器每次切歌 / 改状态都可能重设
-        /// NowPlayingInfo，所以 JS 侧在每次同步歌词岛时都调一次。
-        Function("clearNowPlayingInfo") { () -> Void in
-            MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
         }
     }
 }

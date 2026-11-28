@@ -16,8 +16,8 @@ import delay from "@/utils/delay";
 import { writeInChunks } from "@/utils/fileUtils.ts";
 import { errorLog } from "@/utils/log.ts";
 import { getDocumentAsync } from "expo-document-picker";
-import Share from "react-native-share";
 import { DocumentDirectoryPath } from "react-native-fs";
+import { saveFileToFiles } from "@/utils/saveToFiles";
 import { readAsStringAsync } from "expo-file-system";
 import { AuthType, createClient } from "webdav";
 
@@ -32,8 +32,8 @@ export default function BackupSetting() {
 
 
     const onBackupToLocal = async () => {
-        // iOS 沙盒内无法自选任意文件夹：改用系统分享单，
-        // 用户可在“存储到‘文件’”里把备份存到手机任意位置。
+        // iOS：直接弹苹果文件管理器（Save 按钮，自选目录），
+        // 不再走分享单。
         if (Platform.OS === "ios") {
             const raw = Backup.backup();
             const filePath = `${DocumentDirectoryPath}/backup.json`;
@@ -43,16 +43,11 @@ export default function BackupSetting() {
                 Toast.warn(t("toast.backupFail", { reason: e?.message ?? e }));
                 return;
             }
-            try {
-                await Share.open({
-                    url: `file://${filePath}`,
-                    type: "application/json",
-                    filename: "backup.json",
-                });
+            const saved = await saveFileToFiles(filePath);
+            if (saved) {
                 Toast.success(t("toast.backupSuccess"));
-            } catch {
-                // 用户取消分享，不提示；备份已保存在应用 Documents 内
             }
+            // 用户取消也不提示；备份已保存在应用 Documents 内
             return;
         }
         navigate(ROUTE_PATH.FILE_SELECTOR, {
