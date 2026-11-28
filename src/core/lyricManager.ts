@@ -17,7 +17,8 @@ import { checkAndCreateDir } from "@/utils/fileUtils";
 import PersistStatus from "@/utils/persistStatus";
 import CryptoJs from "crypto-js";
 import { unlink, writeFile } from "react-native-fs";
-import RNTrackPlayer, { Event } from "react-native-track-player";
+import { AppState } from "react-native";
+import RNTrackPlayer, { Event, State } from "react-native-track-player";
 import { TrackPlayerEvents } from "@/core.defination/trackPlayer";
 import { IPluginManager } from "@/types/core/pluginManager";
 
@@ -97,6 +98,25 @@ class LyricManager implements IInjectable {
             this.syncLiveActivity();
         });
 
+        // 播放状态一变就处理灵动岛：暂停/停止时结束活动（否则歌词岛
+        // 在音频关掉后还一直挂着），恢复播放时用最新进度重新同步
+        // （纠正进度条漂移）。没有这个监听，歌词岛只在行变化时才动。
+        RNTrackPlayer.addEventListener(Event.PlaybackState, ({ state }) => {
+            if (state === State.Paused || state === State.Stopped) {
+                endLyricsLiveActivity();
+            } else if (state === State.Playing) {
+                this.syncLiveActivity();
+            }
+        });
+
+        // 回到前台时用最新进度重新同步一次（打开软件歌词不刷新的根因：
+        // 之前只有行变化才推，切回来时行没变就不推，显示就停在旧进度）。
+        AppState.addEventListener("change", (nextState) => {
+            if (nextState === "active") {
+                this.syncLiveActivity();
+            }
+        });
+
         this.refreshLyric(true);
     }
 
@@ -106,7 +126,7 @@ class LyricManager implements IInjectable {
      * 结束活动（如果有）。设置页和歌词面板的开关也调这个方法，
      * 这样开关当时就能立即生效，不用等下一行歌词。
      */
-    syncLiveActivity() {
+    async syncLiveActivity() {
         if (!this.appConfig.getConfig("lyric.showStatusBarLyric")) {
             endLyricsLiveActivity();
             return;
@@ -132,9 +152,23 @@ class LyricManager implements IInjectable {
         const items = this.lyricParser?.getLyricItems() ?? [];
         const nextLine = formatLine(items[currentLyricItem.index + 1]);
 
-        const startedAtMs =
-            Date.now() - (this.lastProgress.position || 0) * 1000;
-        const durationSec = this.lastProgress.duration || 0;
+        // 用实时进度算 startedAt，不要用缓存的 lastProgress：缓存只在
+        // 进度事件里更新，暂停/切歌/切后台后就 stale，歌词进度条会和
+        // 音频进度条对不上（锁屏上一个 1:41 一个 2:25 就是这么来的）。
+        let position = this.lastProgress.position || 0;
+        let durationSec = this.lastProgress.duration || 0;
+        try {
+            const progress = await RNTrackPlayer.getProgress();
+            if (typeof progress?.position === "number") {
+                position = progress.position;
+            }
+            if (typeof progress?.duration === "number") {
+                durationSec = progress.duration;
+            }
+        } catch {
+            // 拿不到实时进度就用缓存，不阻塞歌词显示。
+        }
+        const startedAtMs = Date.now() - position * 1000;
 
         // 每次都走 start：原生 startActivity 已在内部处理“已有活动则更新”，
         // 且失败后下次行变化会重新 start，不会像 update 分支那样永久卡死。
