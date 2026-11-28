@@ -19,6 +19,7 @@ import { IconButtonWithGesture } from "@/components/base/iconButton.tsx";
 import { getMediaExtraProperty } from "@/utils/mediaExtra";
 import lyricManager, { useCurrentLyricItem, useLyricState } from "@/core/lyricManager";
 import { useI18N } from "@/core/i18n";
+import useColors from "@/hooks/useColors";
 
 const ITEM_HEIGHT = rpx(92);
 
@@ -60,6 +61,7 @@ export default function Lyric(props: IProps) {
         useDelayFalsy<number | undefined>(undefined, 2000);
     const musicState = useMusicState();
     const { t } = useI18N();
+    const colors = useColors();
 
     const [layout, setLayout] = useState<LayoutRectangle>();
 
@@ -227,7 +229,7 @@ export default function Lyric(props: IProps) {
             <GestureDetector gesture={tapGesture}>
                 <View style={globalStyle.fwflex1}>
                     {loading ? (
-                        <Loading color="white" />
+                        <Loading color={colors.text} />
                     ) : lyrics?.length ? (
                         <FlatList
                             ref={_ => {
@@ -260,6 +262,7 @@ export default function Lyric(props: IProps) {
                                                 <Text
                                                     style={[
                                                         styles.lyricMetaText,
+                                                        { color: colors.text },
                                                         fontSizeStyle,
                                                     ]}
                                                     ellipsizeMode="middle"
@@ -276,6 +279,7 @@ export default function Lyric(props: IProps) {
                                                     <Text
                                                         style={[
                                                             styles.linkText,
+                                                            { color: colors.primary },
                                                             fontSizeStyle,
                                                         ]}>
                                                         {t("lyric.unlinkLyric")}
@@ -318,7 +322,7 @@ export default function Lyric(props: IProps) {
                         />
                     ) : (
                         <View style={globalStyle.fullCenter}>
-                            <Text style={[styles.white, fontSizeStyle]}>
+                            <Text style={[styles.white, { color: colors.text }, fontSizeStyle]}>
                                 {t("lyric.noLyric")}
                             </Text>
                             <TapGestureHandler
@@ -329,7 +333,7 @@ export default function Lyric(props: IProps) {
                                     });
                                 }}>
                                 <Text
-                                    style={[styles.searchLyric, fontSizeStyle]}>
+                                    style={[styles.searchLyric, { color: colors.primary }, fontSizeStyle]}>
                                     {t("lyric.searchLyric")}
                                 </Text>
                             </TapGestureHandler>
@@ -352,10 +356,10 @@ export default function Lyric(props: IProps) {
                                     +(meta?.offset ?? 0)
                                 }
                             />
-                            <View style={styles.singleLine} />
+                            <View style={[styles.singleLine, { backgroundColor: colors.divider }]} />
 
                             <IconButtonWithGesture
-                                style={styles.playIcon}
+                                style={[styles.playIcon, { color: colors.text }]}
                                 sizeType='normal'
                                 name="play"
                                 onPress={onLyricSeekPress}

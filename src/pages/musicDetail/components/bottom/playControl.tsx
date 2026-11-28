@@ -9,12 +9,14 @@ import TrackPlayer, { useMusicState, useRepeatMode } from "@/core/trackPlayer";
 import useOrientation from "@/hooks/useOrientation";
 import delay from "@/utils/delay";
 import { musicIsPaused } from "@/utils/trackUtils";
+import useColors from "@/hooks/useColors";
 
 export default function () {
     const repeatMode = useRepeatMode();
     const musicState = useMusicState();
 
     const orientation = useOrientation();
+    const colors = useColors();
 
     console.log(repeatMode, repeatModeConst[repeatMode]);
 
@@ -30,7 +32,7 @@ export default function () {
                         : null,
                 ]}>
                 <Icon
-                    color={"white"}
+                    color={colors.text}
                     name={repeatModeConst[repeatMode].icon}
                     size={rpx(56)}
                     onPress={async () => {
@@ -41,7 +43,7 @@ export default function () {
                     }}
                 />
                 <Icon
-                    color={"white"}
+                    color={colors.text}
                     name={"skip-left"}
                     size={rpx(56)}
                     onPress={() => {
@@ -49,7 +51,7 @@ export default function () {
                     }}
                 />
                 <Icon
-                    color={"white"}
+                    color={colors.text}
                     name={musicIsPaused(musicState) ? "play" : "pause"}
                     size={rpx(96)}
                     onPress={() => {
@@ -61,7 +63,7 @@ export default function () {
                     }}
                 />
                 <Icon
-                    color={"white"}
+                    color={colors.text}
                     name={"skip-right"}
                     size={rpx(56)}
                     onPress={() => {
@@ -69,7 +71,7 @@ export default function () {
                     }}
                 />
                 <Icon
-                    color={"white"}
+                    color={colors.text}
                     name={"playlist"}
                     size={rpx(56)}
                     onPress={() => {

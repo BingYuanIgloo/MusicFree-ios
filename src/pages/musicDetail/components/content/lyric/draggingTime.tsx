@@ -4,12 +4,21 @@ import rpx from "@/utils/rpx";
 import timeformat from "@/utils/timeformat";
 import { fontSizeConst } from "@/constants/uiConst";
 import { useProgress } from "@/core/trackPlayer";
+import useColors from "@/hooks/useColors";
 
 export default function DraggingTime(props: { time: number }) {
     const progress = useProgress();
+    const colors = useColors();
 
     return (
-        <Text style={style.draggingTimeText}>
+        <Text
+            style={[
+                style.draggingTimeText,
+                {
+                    color: colors.textSecondary,
+                    backgroundColor: colors.divider,
+                },
+            ]}>
             {timeformat(
                 Math.max(Math.min(props.time, progress.duration ?? 0), 0),
             )}

@@ -33,6 +33,7 @@ function _LyricItemComponent(props: ILyricItemComponentProps) {
             }}
             style={[
                 lyricStyles.item,
+                { color: colors.text },
                 {
                     fontSize: fontSize || fontSizeConst.content,
                 },
@@ -68,7 +69,6 @@ const lyricStyles = StyleSheet.create({
         opacity: 1,
     },
     item: {
-        color: "white",
         opacity: 0.6,
         paddingHorizontal: rpx(64),
         paddingVertical: rpx(24),
@@ -78,6 +78,5 @@ const lyricStyles = StyleSheet.create({
     },
     draggingItem: {
         opacity: 0.9,
-        color: "white",
     },
 });

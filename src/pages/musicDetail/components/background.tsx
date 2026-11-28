@@ -2,9 +2,11 @@ import React, { useMemo } from "react";
 import { Image, StyleSheet, View } from "react-native";
 import { ImgAsset } from "@/constants/assetsConst";
 import { useCurrentMusic } from "@/core/trackPlayer";
+import useColors from "@/hooks/useColors";
 
 export default function Background() {
     const musicItem = useCurrentMusic();
+    const colors = useColors();
 
     const artworkSource = useMemo(() => {
         if (!musicItem?.artwork) {
@@ -22,7 +24,12 @@ export default function Background() {
 
     return (
         <>
-            <View style={style.background} />
+            <View
+                style={[
+                    style.background,
+                    { backgroundColor: colors?.pageBackground ?? "#fafafa" },
+                ]}
+            />
             <Image style={style.blur} blurRadius={50} source={artworkSource} />
         </>
     );
@@ -37,7 +44,6 @@ const style = StyleSheet.create({
         left: 0,
         right: 0,
         bottom: 0,
-        backgroundColor: "#000",
     },
     blur: {
         width: "100%",

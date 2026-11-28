@@ -8,10 +8,12 @@ import Share from "react-native-share";
 import { B64Asset } from "@/constants/assetsConst";
 import IconButton from "@/components/base/iconButton";
 import { useCurrentMusic } from "@/core/trackPlayer";
+import useColors from "@/hooks/useColors";
 
 export default function NavBar() {
     const navigation = useNavigation();
     const musicItem = useCurrentMusic();
+    const colors = useColors();
     // const {showShare} = useShare();
 
     return (
@@ -19,32 +21,32 @@ export default function NavBar() {
             <IconButton
                 name="arrow-left"
                 sizeType={"normal"}
-                color="white"
+                color={colors.text}
                 style={styles.button}
                 onPress={() => {
                     navigation.goBack();
                 }}
             />
             <View style={styles.headerContent}>
-                <Text numberOfLines={1} style={styles.headerTitleText}>
+                <Text numberOfLines={1} style={[styles.headerTitleText, { color: colors.text }]}>
                     {musicItem?.title ?? "--"}
                 </Text>
                 <View style={styles.headerDesc}>
-                    <Text style={styles.headerArtistText} numberOfLines={1}>
+                    <Text style={[styles.headerArtistText, { color: colors.text }]} numberOfLines={1}>
                         {musicItem?.artist}
                     </Text>
                     {musicItem?.platform ? (
                         <Tag
                             tagName={musicItem.platform}
-                            containerStyle={styles.tagBg}
-                            style={styles.tagText}
+                            containerStyle={[styles.tagBg, { backgroundColor: colors.divider }]}
+                            style={[styles.tagText, { color: colors.text }]}
                         />
                     ) : null}
                 </View>
             </View>
             <IconButton
                 name="share"
-                color="white"
+                color={colors.text}
                 sizeType="normal"
                 style={styles.button}
                 onPress={async () => {

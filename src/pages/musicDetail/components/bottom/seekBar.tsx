@@ -5,19 +5,24 @@ import Slider from "@react-native-community/slider";
 import timeformat from "@/utils/timeformat";
 import { fontSizeConst } from "@/constants/uiConst";
 import TrackPlayer, { useProgress } from "@/core/trackPlayer";
+import useColors from "@/hooks/useColors";
 
 interface ITimeLabelProps {
     time: number;
 }
 
 function TimeLabel(props: ITimeLabelProps) {
+    const colors = useColors();
     return (
-        <Text style={style.text}>{timeformat(Math.max(props.time, 0))}</Text>
+        <Text style={[style.text, { color: colors.textSecondary }]}>
+            {timeformat(Math.max(props.time, 0))}
+        </Text>
     );
 }
 
 export default function SeekBar() {
     const progress = useProgress(1000);
+    const colors = useColors();
     const [tmpProgress, setTmpProgress] = useState<number | null>(null);
     const slidingRef = useRef(false);
 
@@ -26,9 +31,9 @@ export default function SeekBar() {
             <TimeLabel time={tmpProgress ?? progress.position} />
             <Slider
                 style={style.slider}
-                minimumTrackTintColor={"#cccccc"}
-                maximumTrackTintColor={"#999999"}
-                thumbTintColor={"#dddddd"}
+                minimumTrackTintColor={colors.text}
+                maximumTrackTintColor={colors.divider}
+                thumbTintColor={colors.text}
                 minimumValue={0}
                 maximumValue={progress.duration}
                 onSlidingStart={() => {
@@ -69,6 +74,5 @@ const style = StyleSheet.create({
     text: {
         fontSize: fontSizeConst.description,
         includeFontPadding: false,
-        color: "#cccccc",
     },
 });
