@@ -1,5 +1,6 @@
 import ExpoModulesCore
 import ActivityKit
+import MediaPlayer
 
 /// 暴露给 JS 的原生模块（react-native-widget-extension 的 Module.swift）。
 ///
@@ -36,7 +37,8 @@ public class ReactNativeWidgetExtensionModule: Module {
                 currentLine: String,
                 nextLine: String,
                 startedAtMs: Double,
-                durationSec: Double
+                durationSec: Double,
+                isPlaying: Bool
             ) -> Bool in
             if #available(iOS 16.2, *) {
                 let startedAt = Date(timeIntervalSince1970: startedAtMs / 1000)
@@ -48,7 +50,8 @@ public class ReactNativeWidgetExtensionModule: Module {
                     currentLine: currentLine,
                     nextLine: nextLine,
                     startedAt: startedAt,
-                    duration: max(durationSec, 0)
+                    duration: max(durationSec, 0),
+                    isPlaying: isPlaying
                 )
                 // 30 分钟后标记为过期：App 异常退出时系统能及时收起活动。
                 let staleDate = Calendar.current.date(
@@ -85,7 +88,8 @@ public class ReactNativeWidgetExtensionModule: Module {
                 currentLine: String,
                 nextLine: String,
                 startedAtMs: Double,
-                durationSec: Double
+                durationSec: Double,
+                isPlaying: Bool
             ) -> Void in
             if #available(iOS 16.2, *) {
                 let startedAt = Date(timeIntervalSince1970: startedAtMs / 1000)
@@ -93,7 +97,8 @@ public class ReactNativeWidgetExtensionModule: Module {
                     currentLine: currentLine,
                     nextLine: nextLine,
                     startedAt: startedAt,
-                    duration: max(durationSec, 0)
+                    duration: max(durationSec, 0),
+                    isPlaying: isPlaying
                 )
                 let updatedContent = ActivityContent(
                     state: contentState, staleDate: nil)
@@ -114,6 +119,15 @@ public class ReactNativeWidgetExtensionModule: Module {
                     }
                 }
             }
+        }
+
+        /// 把系统 Now Playing（MPNowPlayingInfoCenter）清掉，系统就
+        /// 不再单独占一个音频灵动岛。歌词岛自己带播放按钮，就是
+        /// 唯一的岛；锁屏上歌词 Live Activity 横幅（带按钮）顶上
+        /// 系统媒体控制。播放器每次切歌 / 改状态都可能重设
+        /// NowPlayingInfo，所以 JS 侧在每次同步歌词岛时都调一次。
+        Function("clearNowPlayingInfo") { () -> Void in
+            MPNowPlayingInfoCenter.default().nowPlayingInfo = nil
         }
     }
 }

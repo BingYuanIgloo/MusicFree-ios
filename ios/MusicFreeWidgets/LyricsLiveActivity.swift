@@ -7,8 +7,9 @@ import SwiftUI
 /// 布局规则（照 DriveVerse / montyp0x 的经验）：
 /// 锁屏和灵动岛用同一套固定视图树，行变化时只换字符串，不用
 /// if / ViewThatFits / .id，系统自己做交叉淡入淡出，避免行切换时闪烁。
-/// v1 不带岛上播放按钮：按钮要 AppIntent 回调主 App，那套接线
-///（URL Scheme 处理）还没做；带一个按了没反应的按钮比没有更糟。
+/// 单岛模式：歌词岛就是播放器，长按展开页和锁屏横幅都带播放按钮
+///（上一首 / 播放暂停 / 下一首），经 URL Scheme 回调主 App。
+/// 系统音频岛由 Module.clearNowPlayingInfo() 清掉，不再单独出现。
 @main
 struct MusicFreeWidgetsBundle: WidgetBundle {
     var body: some Widget {
@@ -43,6 +44,23 @@ struct LyricsLiveActivity: Widget {
                         duration: context.state.duration),
                     countsDown: false
                 )
+                // 播放控制：上一首 / 播放暂停 / 下一首。点按经 URL Scheme
+                // 回主 App（见 liveActivityLinking.ts），不直接操作音频。
+                HStack(spacing: 28) {
+                    Link(destination: URL(string: "com.anonymous.musicfree://liveactivity/previous")!) {
+                        Image(systemName: "backward.fill")
+                            .font(.system(size: 18))
+                    }
+                    Link(destination: URL(string: "com.anonymous.musicfree://liveactivity/playpause")!) {
+                        Image(systemName: context.state.isPlaying ? "pause.fill" : "play.fill")
+                            .font(.system(size: 22))
+                    }
+                    Link(destination: URL(string: "com.anonymous.musicfree://liveactivity/next")!) {
+                        Image(systemName: "forward.fill")
+                            .font(.system(size: 18))
+                    }
+                }
+                .padding(.top, 6)
             }
             .padding(12)
             .activityBackgroundTint(.black.opacity(0.35))
@@ -73,6 +91,23 @@ struct LyricsLiveActivity: Widget {
                             .font(.system(size: 12))
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
+                // 播放控制：上一首 / 播放暂停 / 下一首。点按经 URL Scheme
+                // 回主 App（见 liveActivityLinking.ts），不直接操作音频。
+                HStack(spacing: 28) {
+                    Link(destination: URL(string: "com.anonymous.musicfree://liveactivity/previous")!) {
+                        Image(systemName: "backward.fill")
+                            .font(.system(size: 18))
+                    }
+                    Link(destination: URL(string: "com.anonymous.musicfree://liveactivity/playpause")!) {
+                        Image(systemName: context.state.isPlaying ? "pause.fill" : "play.fill")
+                            .font(.system(size: 22))
+                    }
+                    Link(destination: URL(string: "com.anonymous.musicfree://liveactivity/next")!) {
+                        Image(systemName: "forward.fill")
+                            .font(.system(size: 18))
+                    }
+                }
+                .padding(.top, 6)
                     }
                 }
             } compactLeading: {
@@ -100,7 +135,7 @@ struct LyricsLiveActivityPreviews: PreviewProvider {
     static let contentState = LyricsLiveActivityAttributes.ContentState(
         currentLine: "故事的小黄花 从出生那年就飘着",
         nextLine: "童年的荡秋千 随记忆一直晃到现在",
-        startedAt: Date(), duration: 269)
+        startedAt: Date(), duration: 269, isPlaying: true)
 
     static var previews: some View {
         attributes

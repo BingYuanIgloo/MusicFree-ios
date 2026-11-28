@@ -17,6 +17,8 @@ struct LyricsLiveActivityAttributes: ActivityAttributes {
         var startedAt: Date
         /// 歌曲总时长（秒）
         var duration: TimeInterval
+        /// 是否正在播放（决定播放按钮显示播放还是暂停图标）
+        var isPlaying: Bool
     }
 
     /// 歌名

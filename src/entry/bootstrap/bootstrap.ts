@@ -8,6 +8,7 @@ import Config from "@/core/appConfig";
 import downloader, { DownloadFailReason, DownloaderEvent } from "@/core/downloader";
 import LocalMusicSheet from "@/core/localMusicSheet";
 import lyricManager from "@/core/lyricManager";
+import { setupLiveActivityLinking } from "@/core/liveActivityLinking";
 import musicHistory from "@/core/musicHistory";
 import MusicSheet from "@/core/musicSheet";
 import PluginManager from "@/core/pluginManager";
@@ -194,6 +195,7 @@ export async function initTrackPlayer(logger?: IPerfLogger) {
     trace("播放列表初始化完成");
     logger?.mark("播放列表初始化完成");
 
+    setupLiveActivityLinking();
     await lyricManager.setup();
 
     logger?.mark("歌词初始化完成");

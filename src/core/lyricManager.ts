@@ -11,6 +11,7 @@ import { Plugin } from "./pluginManager";
 
 import pathConst from "@/constants/pathConst";
 import {
+    clearNowPlayingInfo,
     endLyricsLiveActivity,
     startLyricsLiveActivity,
 } from "@/core/liveActivityLyrics";
@@ -103,6 +104,8 @@ class LyricManager implements IInjectable {
 
     /** 最近一次进度事件的位置/总时长（用来算灵动岛进度条的开始时间）。 */
     private lastProgress = { position: 0, duration: 0 };
+    // 最近一次播放状态（供歌词岛播放按钮图标用）。
+    private lastPlaybackPlaying = false;
 
 
     get currentLyricItem() {
@@ -151,13 +154,18 @@ class LyricManager implements IInjectable {
             this.syncLiveActivity();
         });
 
-        // 播放状态一变就处理灵动岛：暂停/停止时结束活动（否则歌词岛
-        // 在音频关掉后还一直挂着），恢复播放时用最新进度重新同步
-        // （纠正进度条漂移）。没有这个监听，歌词岛只在行变化时才动。
+        // 播放状态一变就处理灵动岛（单岛模式：歌词岛就是播放器）。
+        // 暂停时岛留着（显示暂停态，点播放可恢复）；停止时才结束
+        // 活动。每次都重同步一次，让播放按钮图标跟着状态翻。
         RNTrackPlayer.addEventListener(Event.PlaybackState, ({ state }) => {
-            if (state === State.Paused || state === State.Stopped) {
+            if (state === State.Stopped) {
+                this.lastPlaybackPlaying = false;
                 endLyricsLiveActivity();
             } else if (state === State.Playing) {
+                this.lastPlaybackPlaying = true;
+                this.syncLiveActivity();
+            } else if (state === State.Paused) {
+                this.lastPlaybackPlaying = false;
                 this.syncLiveActivity();
             }
         });
@@ -223,6 +231,11 @@ class LyricManager implements IInjectable {
         }
         const startedAtMs = Date.now() - position * 1000;
 
+        // 每次同步都清一次系统 Now Playing：播放器切歌 / 改状态时
+        // 会重设 NowPlayingInfo，系统音频岛就又冒出来；清掉它，
+        // 歌词岛才是唯一的岛。
+        clearNowPlayingInfo();
+
         // 每次都走 start：原生 startActivity 已在内部处理“已有活动则更新”，
         // 且失败后下次行变化会重新 start，不会像 update 分支那样永久卡死。
         startLyricsLiveActivity(
@@ -232,6 +245,7 @@ class LyricManager implements IInjectable {
             nextLine,
             startedAtMs,
             durationSec,
+            this.lastPlaybackPlaying,
         );
     }
 

@@ -13,9 +13,10 @@ import { requireOptionalNativeModule } from "expo-modules-core";
  *
  * 原生侧约定见 ios/MusicFreeWidgets/Module.swift：
  *   areActivitiesEnabled() -> Bool
- *   startActivity(title, artist, currentLine, nextLine, startedAtMs, durationSec)
- *   updateActivity(currentLine, nextLine, startedAtMs, durationSec)
+ *   startActivity(title, artist, currentLine, nextLine, startedAtMs, durationSec, isPlaying)
+ *   updateActivity(currentLine, nextLine, startedAtMs, durationSec, isPlaying)
  *   endActivity()
+ *   clearNowPlayingInfo()
  *
  * 调用节奏：只在歌词行变化时 update（iOS 18 起应用内更新会被
  * 节流到约 5–15 秒一次，逐行推已经是最省的打法）；切歌时
@@ -32,14 +33,17 @@ interface IWidgetExtensionModule {
         nextLine: string,
         startedAtMs: number,
         durationSec: number,
+        isPlaying: boolean,
     ) => boolean;
     updateActivity: (
         currentLine: string,
         nextLine: string,
         startedAtMs: number,
         durationSec: number,
+        isPlaying: boolean,
     ) => void;
     endActivity: () => void;
+    clearNowPlayingInfo: () => void;
 }
 
 const MAX_LINE_LENGTH = 150;
@@ -77,6 +81,7 @@ export function areLyricsLiveActivitiesEnabled(): boolean {
 
 let activityActive = false;
 let lastSentLine = "";
+let lastSentIsPlaying = false;
 
 function truncate(line: string): string {
     return line.length > MAX_LINE_LENGTH
@@ -91,6 +96,7 @@ export function startLyricsLiveActivity(
     nextLine: string,
     startedAtMs: number,
     durationSec: number,
+    isPlaying: boolean,
 ): void {
     const mod = getModule();
     if (!mod) {
@@ -106,10 +112,12 @@ export function startLyricsLiveActivity(
             truncate(nextLine),
             startedAtMs,
             Math.max(durationSec, 0),
+            isPlaying,
         );
         if (ok) {
             activityActive = true;
             lastSentLine = currentLine;
+            lastSentIsPlaying = isPlaying;
         } else {
             activityActive = false;
         }
@@ -123,9 +131,15 @@ export function updateLyricsLiveActivity(
     nextLine: string,
     startedAtMs: number,
     durationSec: number,
+    isPlaying: boolean,
 ): void {
-    // 行没变就不推：同一行重复 update 纯属浪费更新预算。
-    if (activityActive && currentLine === lastSentLine) {
+    // 行和播放状态都没变就不推：同一行重复 update 纯属浪费更新预算。
+    // 只翻播放 / 暂停时，行不变但图标要变，必须推。
+    if (
+        activityActive &&
+        currentLine === lastSentLine &&
+        isPlaying === lastSentIsPlaying
+    ) {
         return;
     }
     const mod = getModule();
@@ -144,8 +158,10 @@ export function updateLyricsLiveActivity(
             truncate(nextLine),
             startedAtMs,
             Math.max(durationSec, 0),
+            isPlaying,
         );
         lastSentLine = currentLine;
+        lastSentIsPlaying = isPlaying;
     } catch {
         activityActive = false;
     }
@@ -156,6 +172,7 @@ export function endLyricsLiveActivity(): void {
     if (!mod) {
         activityActive = false;
         lastSentLine = "";
+        lastSentIsPlaying = false;
         return;
     }
     try {
@@ -165,6 +182,16 @@ export function endLyricsLiveActivity(): void {
     } finally {
         activityActive = false;
         lastSentLine = "";
+        lastSentIsPlaying = false;
+    }
+}
+
+/** 清掉系统 Now Playing，让系统不再单独占一个音频灵动岛。 */
+export function clearNowPlayingInfo(): void {
+    try {
+        getModule()?.clearNowPlayingInfo();
+    } catch {
+        // 模块缺失时静默 no-op。
     }
 }
 
