@@ -75,6 +75,15 @@ module.exports = async function () {
         try {
             const raw = headlessLyricStore.getString("current");
             if (!raw) {
+                // 歌词数据没了（切歌时主线程刚删了旧 key、新歌词还没写进来，
+                // 或这首歌本来就没歌词）：如果后台之前推过歌词，主动把岛收掉，
+                // 不然旧歌词会一直卡在岛上/锁屏上，直到下一行歌词才刷新。
+                // lastHeadlessLyricLine 为空说明本上下文没推过歌，不用重复 end。
+                if (lastHeadlessLyricLine) {
+                    lastHeadlessLyricLine = "";
+                    lastHeadlessPushTime = 0;
+                    endLyricsLiveActivity();
+                }
                 return;
             }
             const data = JSON.parse(raw) as {
@@ -89,6 +98,11 @@ module.exports = async function () {
             };
             const items = data.items ?? [];
             if (!items.length) {
+                if (lastHeadlessLyricLine) {
+                    lastHeadlessLyricLine = "";
+                    lastHeadlessPushTime = 0;
+                    endLyricsLiveActivity();
+                }
                 return;
             }
             const pos = position - (data.offset ?? 0);

@@ -60,13 +60,22 @@ public class ReactNativeWidgetExtensionModule: Module {
                 let activityContent = ActivityContent(
                     state: contentState, staleDate: staleDate)
 
-                // 同一时间只保留一个歌词活动：如果已存在，先更新它而不是再开一个。
+                // 同一时间只保留一个歌词活动：如果已存在且是同一首歌，
+                // 直接更新它；换歌了则结束旧活动重开（歌名/歌手存在活动
+                // 属性里，update 改不了，不重开岛上一直是上一首的歌，
+                // 歌词却是新歌的，岛和锁屏就“打架”）。
                 let existing = Activity<LyricsLiveActivityAttributes>.activities
                 if let activity = existing.first {
-                    Task {
-                        await activity.update(activityContent)
+                    if activity.attributes.title == title &&
+                        activity.attributes.artist == artist {
+                        Task {
+                            await activity.update(activityContent)
+                        }
+                        return true
                     }
-                    return true
+                    Task {
+                        await activity.end(nil, dismissalPolicy: .immediate)
+                    }
                 }
 
                 do {
@@ -120,7 +129,10 @@ public class ReactNativeWidgetExtensionModule: Module {
             if #available(iOS 16.2, *) {
                 Task {
                     for activity in Activity<LyricsLiveActivityAttributes>.activities {
-                        await activity.end(nil, dismissalPolicy: .default)
+                        // .immediate：结束时锁屏横幅立刻消失。.default 会把
+                        // 锁屏横幅留下来当通知，用户看到的就是“歌词放完了
+                        // 还显示在锁屏上，关不掉”。
+                        await activity.end(nil, dismissalPolicy: .immediate)
                     }
                 }
             }
