@@ -50,7 +50,7 @@ export default function MusicQuality(props: IMusicQualityProps) {
                         style={[
                             style.body,
                             {
-                                marginBottom: safeAreaInsets.bottom,
+                                marginBottom: 0,
                             },
                         ]}>
                         {qualityKeys.map(key => {

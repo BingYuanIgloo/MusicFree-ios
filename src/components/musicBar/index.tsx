@@ -119,11 +119,21 @@ export default memo(MusicBar, () => true);
 
 const style = StyleSheet.create({
     wrapper: {
-        width: "100%",
+        // 悬浮胶囊：左右留边、底部悬空、圆角=高的一半。
+        // 液态玻璃的底栏就是这种胶囊形（长方形套玻璃只是玻璃条，
+        // 不是浮起来的胶囊）。先改形状，以后套玻璃材质直接就是胶囊。
         height: rpx(132),
         flexDirection: "row",
         alignItems: "center",
         paddingRight: rpx(24),
+        marginHorizontal: rpx(24),
+        marginBottom: rpx(12),
+        borderRadius: rpx(66),
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 12,
+        elevation: 8,
     },
     actionGroup: {
         width: rpx(200),

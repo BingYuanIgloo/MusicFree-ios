@@ -115,7 +115,7 @@ export default function Body(props: IBodyProps) {
             style={[
                 style.playList,
                 {
-                    paddingBottom: safeAreaInsets.bottom,
+                    paddingBottom: 0,
                 },
             ]}>
             <FlashList

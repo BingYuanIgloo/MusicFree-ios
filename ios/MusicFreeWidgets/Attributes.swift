@@ -11,8 +11,12 @@ struct LyricsLiveActivityAttributes: ActivityAttributes {
     public struct ContentState: Codable, Hashable {
         /// 当前歌词行（空字符串表示当前无歌词行）
         var currentLine: String
+        /// 当前行翻译（中文；无翻译时为空字符串）
+        var currentLineTrans: String
         /// 下一行歌词（可为空）
         var nextLine: String
+        /// 下一行翻译（无翻译时为空字符串）
+        var nextLineTrans: String
         /// 歌曲开始播放的墙钟时间（用于锁屏进度条自己走）
         var startedAt: Date
         /// 歌曲总时长（秒）

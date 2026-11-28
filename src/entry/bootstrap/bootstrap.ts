@@ -14,6 +14,7 @@ import MusicSheet from "@/core/musicSheet";
 import PluginManager from "@/core/pluginManager";
 import Theme from "@/core/theme";
 import TrackPlayer from "@/core/trackPlayer";
+import { installAppLogger } from "@/core/appLogger";
 import NativeUtils from "@/native/utils";
 import { checkAndCreateDir } from "@/utils/fileUtils";
 import { errorLog, trace } from "@/utils/log";
@@ -39,6 +40,8 @@ MusicSheet.injectDependencies(Config);
 
 
 async function bootstrapImpl() {
+    // 诊断日志最先装：拦截 console + 全局报错，诊断面板实时看。
+    installAppLogger();
     const logger = perfLogger();
     // 1. 检查权限（仅 Android 需要读写存储权限；iOS 为沙盒，无需申请）
     if (Platform.OS === "android") {

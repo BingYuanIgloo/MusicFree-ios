@@ -125,9 +125,12 @@ async function resume(
         message?: string;
     }> = [];
     for (const _ of plugins ?? []) {
-        // 校验是否安装过: 同源且本地版本更高就忽略掉
-        if (
-            validPlugins.find(
+        // 校验是否安装过: 同源且本地版本更高就忽略掉。
+        // compare() 碰到不规范版本号会抛错，之前这段在 try/catch 外面，
+        // 一个坏版本就中断整个恢复（只恢复了前几条、速度还显得快）。
+        let alreadyInstalled = false;
+        try {
+            alreadyInstalled = !!validPlugins.find(
                 plugin =>
                     plugin.instance.srcUrl === _.srcUrl &&
                     compare(
@@ -135,22 +138,35 @@ async function resume(
                         _.version ?? "0.0.1",
                         ">=",
                     ),
-            )
-        ) {
+            );
+        } catch {
+            // 坏版本当作没装过，走正常安装流程（安装侧自己会判重）。
+            alreadyInstalled = false;
+        }
+        if (alreadyInstalled) {
             continue;
         }
-        try {
-            const result = await PluginManager.installPluginFromUrl(_.srcUrl);
-            resumeResults.push({
-                srcUrl: _.srcUrl,
-                success: result.success,
-                message: result.message,
-            });
-        } catch (e: any) {
+        // 安装失败重试一次（临时网络抖动很常见），两次都失败才记失败。
+        let lastError: any = null;
+        let installed = false;
+        for (let attempt = 0; attempt < 2 && !installed; attempt++) {
+            try {
+                const result = await PluginManager.installPluginFromUrl(_.srcUrl);
+                resumeResults.push({
+                    srcUrl: _.srcUrl,
+                    success: result.success,
+                    message: result.message,
+                });
+                installed = true;
+            } catch (e: any) {
+                lastError = e;
+            }
+        }
+        if (!installed) {
             resumeResults.push({
                 srcUrl: _.srcUrl,
                 success: false,
-                message: e?.message ?? String(e),
+                message: lastError?.message ?? String(lastError),
             });
         }
     }

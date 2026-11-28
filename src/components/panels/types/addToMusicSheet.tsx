@@ -43,7 +43,7 @@ export default function AddToMusicSheet(props: IAddToMusicSheetProps) {
                             data={sheets ?? []}
                             keyExtractor={sheet => sheet.id}
                             style={{
-                                marginBottom: safeAreaInsets.bottom,
+                                marginBottom: 0,
                             }}
                             ListHeaderComponent={
                                 <ListItem

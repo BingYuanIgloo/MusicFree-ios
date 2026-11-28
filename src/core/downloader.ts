@@ -13,11 +13,11 @@ import { atom, getDefaultStore, useAtomValue } from "jotai";
 import { nanoid } from "nanoid";
 import path from "path-browserify";
 import { useEffect, useState } from "react";
-import { copyFile, downloadFile, exists, unlink } from "react-native-fs";
+import { copyFile, downloadFile, exists, unlink, writeFile } from "react-native-fs";
 import LocalMusicSheet from "./localMusicSheet";
 import { IPluginManager } from "@/types/core/pluginManager";
 import Toast from "@/utils/toast";
-import { saveFileToFiles } from "@/utils/saveToFiles";
+import { copyFileToPickedURL, saveFileToFiles } from "@/utils/saveToFiles";
 
 
 export enum DownloadStatus {
@@ -300,6 +300,35 @@ class Downloader extends EventEmitter<IEvents> implements IInjectable {
             return;
         }
 
+        // 先选位置，再下载：先弹 Files 保存框（拿一个同名占位空文件去弹，
+        // 不然保存框没文件可存）。用户取消 -> 直接不下、不提示成功、不留文件；
+        // 用户点了保存 -> 再开始下载，下完写进用户选的位置。
+        const placeholderPath = this.getCacheDownloadPath(
+            `${nextTask.filename}.${extension}`,
+        );
+        let pickedDestURL: string | null = null;
+        try {
+            await writeFile(placeholderPath, "", "utf8");
+            pickedDestURL = await saveFileToFiles(placeholderPath);
+        } catch {
+            pickedDestURL = null;
+        }
+        if (!pickedDestURL) {
+            // 用户取消了保存框：取消本次下载任务，不提示“下载成功”、不留文件。
+            // 直接从任务表和队列里删掉（remove() 只删 Pending/Error 状态，
+            // 现在是 Preparing，所以手动删），再把计数减回去、继续下一个任务。
+            await unlink(placeholderPath).catch(() => {});
+            downloadTasks.delete(getMediaUniqueKey(musicItem));
+            const downloadQueue = getDefaultStore().get(downloadQueueAtom);
+            const newDownloadQueue = downloadQueue.filter(
+                item => !isSameMediaItem(item, musicItem),
+            );
+            getDefaultStore().set(downloadQueueAtom, newDownloadQueue);
+            this.downloadingCount = Math.max(0, this.downloadingCount - 1);
+            this.downloadNextPendingTask();
+            return;
+        }
+
         // 下载
         const { promise } = downloadFile({
             fromUrl: url ?? "",
@@ -343,12 +372,15 @@ class Downloader extends EventEmitter<IEvents> implements IInjectable {
 
             this.markTaskAsCompleted(musicItem);
 
-            // 下完弹出苹果文件管理器（Save 按钮，自选目录）：
-            // asCopy，App 自己那份还在 download/music/，离线播放不受影响。
+            // 写进用户在保存框里选的位置（覆盖占位空文件）；
+            // App 自己那份仍在 download/music/，离线播放不受影响。
             try {
-                await saveFileToFiles(targetDownloadPath.replace(/^file:\/\//, ""));
+                await copyFileToPickedURL(
+                    targetDownloadPath.replace(/^file:\/\//, ""),
+                    pickedDestURL,
+                );
             } catch {
-                // 弹不出也不影响已下载的文件本身。
+                // 写不进用户选的位置也不影响已下载的文件本身。
             }
         } catch (e: any) {
             Toast.warn("下载失败，无法获取到这首歌");
@@ -357,6 +389,7 @@ class Downloader extends EventEmitter<IEvents> implements IInjectable {
 
         // 清理工作
         await unlink(cacheDownloadPath);
+        await unlink(placeholderPath).catch(() => {});
         this.downloadNextPendingTask();
 
         // 如果任务状态是完成，则从队列中移除

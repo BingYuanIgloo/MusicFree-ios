@@ -30,19 +30,48 @@ interface IWidgetExtensionModule {
         title: string,
         artist: string,
         currentLine: string,
+        currentLineTrans: string,
         nextLine: string,
+        nextLineTrans: string,
         startedAtMs: number,
         durationSec: number,
         isPlaying: boolean,
     ) => boolean;
     updateActivity: (
         currentLine: string,
+        currentLineTrans: string,
         nextLine: string,
+        nextLineTrans: string,
         startedAtMs: number,
         durationSec: number,
         isPlaying: boolean,
     ) => void;
     endActivity: () => void;
+}
+
+/**
+ * 把一行歌词拆成主句 + 翻译。
+ * 有独立 translation 字段的直接用；没有的（一行里英文+中文混着，
+ * 如 "It's always a good time 快乐时光永远都在"）按首个中文字符切开。
+ * 纯中文歌（无英文主句）不拆，原样返回。
+ */
+export function splitLyricLine(
+    line: string,
+    translation?: string | null,
+): { main: string; trans: string } {
+    if (translation) {
+        return { main: line ?? "", trans: translation };
+    }
+    const text = line ?? "";
+    const chars = [...text];
+    const idx = chars.findIndex(ch => /[\u4e00-\u9fff]/.test(ch));
+    if (idx <= 0) {
+        return { main: text, trans: "" };
+    }
+    return {
+        main: chars.slice(0, idx).join("").trim(),
+        trans: chars.slice(idx).join("").trim(),
+    };
 }
 
 const MAX_LINE_LENGTH = 150;
@@ -108,7 +137,9 @@ export function startLyricsLiveActivity(
     title: string,
     artist: string,
     currentLine: string,
+    currentLineTrans: string,
     nextLine: string,
+    nextLineTrans: string,
     startedAtMs: number,
     durationSec: number,
     isPlaying: boolean,
@@ -124,7 +155,9 @@ export function startLyricsLiveActivity(
             title,
             artist,
             truncate(currentLine),
+            truncate(currentLineTrans),
             truncate(nextLine),
+            truncate(nextLineTrans),
             startedAtMs,
             Math.max(durationSec, 0),
             isPlaying,
@@ -143,7 +176,9 @@ export function startLyricsLiveActivity(
 
 export function updateLyricsLiveActivity(
     currentLine: string,
+    currentLineTrans: string,
     nextLine: string,
+    nextLineTrans: string,
     startedAtMs: number,
     durationSec: number,
     isPlaying: boolean,
@@ -170,7 +205,9 @@ export function updateLyricsLiveActivity(
         }
         mod.updateActivity(
             truncate(currentLine),
+            truncate(currentLineTrans),
             truncate(nextLine),
+            truncate(nextLineTrans),
             startedAtMs,
             Math.max(durationSec, 0),
             isPlaying,

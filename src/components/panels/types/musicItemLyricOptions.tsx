@@ -214,7 +214,7 @@ export default function MusicItemLyricOptions(
                             style={[
                                 style.listWrapper,
                                 {
-                                    marginBottom: safeAreaInsets.bottom,
+                                    marginBottom: 0,
                                 },
                             ]}
                             keyExtractor={_ => _.title}

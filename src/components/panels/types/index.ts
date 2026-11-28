@@ -19,6 +19,7 @@ import ImageViewer from "./imageViewer";
 import MusicComment from "./musicComment";
 import MusicItemLyricOptions from "./musicItemLyricOptions";
 import EditMusicSheetInfo from "./editMusicSheetInfo";
+import AppDiagnostics from "./appDiagnostics";
 
 export default {
     /** 加入歌单 */
@@ -61,4 +62,6 @@ export default {
     MusicComment,
     MusicItemLyricOptions,
     EditMusicSheetInfo,
+    /** 诊断小窗：日志 + 图层 + 点按检测 */
+    AppDiagnostics,
 };

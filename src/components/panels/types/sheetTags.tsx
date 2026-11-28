@@ -31,7 +31,7 @@ export default function SheetTags(props: ISheetTagsProps) {
                     <ScrollView
                         style={[
                             style.body,
-                            { marginBottom: safeAreaInsets.bottom },
+                            { marginBottom: 0 },
                         ]}>
                         <View style={style.groupItem}>
                             <TypeTag

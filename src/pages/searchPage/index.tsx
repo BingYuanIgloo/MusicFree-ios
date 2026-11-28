@@ -35,7 +35,7 @@ export default function () {
     }, []);
 
     return (
-        <SafeAreaView edges={["bottom"]} style={[style.wrapper, { paddingTop: topInset }]}>
+        <SafeAreaView edges={[]} style={[style.wrapper, { paddingTop: topInset }]}>
             <StatusBar />
             <NavBar />
             <SafeAreaView edges={["left", "right"]} style={style.wrapper}>

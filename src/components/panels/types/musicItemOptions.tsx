@@ -295,7 +295,7 @@ export default function MusicItemOptions(props: IMusicItemOptionsProps) {
                             style={[
                                 style.listWrapper,
                                 {
-                                    marginBottom: safeAreaInsets.bottom,
+                                    marginBottom: 0,
                                 },
                             ]}
                             keyExtractor={_ => _.title}

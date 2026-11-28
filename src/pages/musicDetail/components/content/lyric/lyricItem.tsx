@@ -35,7 +35,10 @@ function _LyricItemComponent(props: ILyricItemComponentProps) {
                 lyricStyles.item,
                 { color: colors.text },
                 {
-                    fontSize: fontSize || fontSizeConst.content,
+                    // 唱到的那句放大（×1.25）提亮；上下句保持原大小、透明度 0.6 变淡。
+                    fontSize: highlight
+                        ? (fontSize || fontSizeConst.content) * 1.25
+                        : (fontSize || fontSizeConst.content),
                 },
                 highlight
                     ? [

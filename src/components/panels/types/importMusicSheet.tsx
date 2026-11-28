@@ -33,7 +33,7 @@ export default function ImportMusicSheet() {
                                 data={validPlugins}
                                 keyExtractor={plugin => plugin.hash}
                                 style={{
-                                    marginBottom: safeAreaInsets.bottom,
+                                    marginBottom: 0,
                                 }}
                                 renderItem={({ item: plugin }) => (
                                     <ListItem

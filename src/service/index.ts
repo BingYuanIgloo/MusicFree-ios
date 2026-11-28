@@ -6,6 +6,7 @@ import PersistStatus from "@/utils/persistStatus";
 import getOrCreateMMKV from "@/utils/getOrCreateMMKV";
 import {
     endLyricsLiveActivity,
+    splitLyricLine,
     startLyricsLiveActivity,
 } from "@/core/liveActivityLyrics";
 
@@ -117,7 +118,8 @@ module.exports = async function () {
                     break;
                 }
             }
-            const line = current.lrc ?? "";
+            const cur = splitLyricLine(current.lrc ?? "", current.translation ?? null);
+            const line = cur.main;
             const now = Date.now();
             const lineChanged = !!line && line !== lastHeadlessLyricLine;
             const heartbeatDue =
@@ -128,14 +130,17 @@ module.exports = async function () {
             lastHeadlessLyricLine = line;
             lastHeadlessPushTime = now;
             const idx = items.indexOf(current);
-            const next = items[idx + 1]?.lrc ?? "";
+            const nextItem = items[idx + 1];
+            const nxt = splitLyricLine(nextItem?.lrc ?? "", nextItem?.translation ?? null);
             // 走 start：原生侧已有活动就更新，没有就新建，
             // 后台也能把岛拉起来，不依赖主线程。
             startLyricsLiveActivity(
                 data.title ?? "",
                 data.artist ?? "",
                 line,
-                next,
+                cur.trans,
+                nxt.main,
+                nxt.trans,
                 Date.now() - position * 1000,
                 duration,
                 true,
@@ -159,11 +164,30 @@ module.exports = async function () {
         headlessSyncLyric(evt.position ?? 0, evt.duration ?? 0);
     });
 
+    // 歌词 30 秒后卡住不动的兜底：锁屏/后台时进度事件可能停发，
+    // 歌词行就再也不更新（进度条是定时器自己走的，所以还在动）。
+    // 每 5 秒主动拿一次真实进度重算当前行，事件停了也能继续推。
+    setInterval(async () => {
+        try {
+            const { position, duration } = await RNTrackPlayer.getProgress();
+            headlessSyncLyric(position ?? 0, duration ?? 0);
+        } catch {}
+    }, 5000);
+
     // 播完 / 队列结束：后台也收掉灵动岛，不然锁屏留一首卡在最后的歌。
-    RNTrackPlayer.addEventListener(Event.PlaybackState, ({ state }) => {
+    RNTrackPlayer.addEventListener(Event.PlaybackState, async ({ state }) => {
         if (state === State.Stopped) {
             lastHeadlessLyricLine = "";
             endLyricsLiveActivity();
+        } else if (state === State.Paused) {
+            // 暂停在曲末＝播完：收岛；中途暂停不收（点播放可恢复）。
+            try {
+                const { position, duration } = await RNTrackPlayer.getProgress();
+                if (duration > 0 && position >= duration - 1.5) {
+                    lastHeadlessLyricLine = "";
+                    endLyricsLiveActivity();
+                }
+            } catch {}
         }
     });
     RNTrackPlayer.addEventListener(Event.PlaybackQueueEnded, () => {

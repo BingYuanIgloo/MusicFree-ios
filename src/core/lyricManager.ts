@@ -171,6 +171,14 @@ class LyricManager implements IInjectable {
                 this.syncLiveActivity();
             } else if (state === State.Paused) {
                 this.lastPlaybackPlaying = false;
+                // 暂停在曲末（进度已到时长）：这首已经播完，不是中途暂停，
+                // 岛留着就是“没播也有歌词条”。直接收掉；中途暂停不受影响。
+                const pos = this.lastProgress.position || 0;
+                const dur = this.lastProgress.duration || 0;
+                if (dur > 0 && pos >= dur - 1.5) {
+                    endLyricsLiveActivity();
+                    return;
+                }
                 this.syncLiveActivity();
             }
         });
@@ -214,15 +222,32 @@ class LyricManager implements IInjectable {
         // 开关开着时这里必须放行，不能因授权查询返回 false 就
         // 静默跳过，否则歌词永远推不到灵动岛。
         const showTranslation = PersistStatus.get("lyric.showTranslation");
-        const formatLine = (item: IParsedLrcItem | null | undefined) =>
-            (item?.lrc ?? "") +
-            (showTranslation && item?.translation
-                ? `\n${item.translation}`
-                : "");
+        // 主句 / 翻译分开传给灵动岛（岛上分两行、不同字号显示）。
+        // 有独立 translation 字段的直接用；没有的按首个中文字符切。
+        const splitItem = (item: IParsedLrcItem | null | undefined) => {
+            const lrc = item?.lrc ?? "";
+            const trans = showTranslation ? (item?.translation ?? null) : null;
+            if (trans) {
+                return { main: lrc, trans };
+            }
+            const chars = [...lrc];
+            const idx = chars.findIndex(ch => /[\u4e00-\u9fff]/.test(ch));
+            if (idx <= 0) {
+                return { main: lrc, trans: "" };
+            }
+            return {
+                main: chars.slice(0, idx).join("").trim(),
+                trans: chars.slice(idx).join("").trim(),
+            };
+        };
 
-        const currentLine = formatLine(currentLyricItem);
+        const cur = splitItem(currentLyricItem);
         const items = this.lyricParser?.getLyricItems() ?? [];
-        const nextLine = formatLine(items[currentLyricItem.index + 1]);
+        const nxt = splitItem(items[currentLyricItem.index + 1]);
+        const currentLine = cur.main;
+        const currentLineTrans = cur.trans;
+        const nextLine = nxt.main;
+        const nextLineTrans = nxt.trans;
 
         // 用实时进度算 startedAt，不要用缓存的 lastProgress：缓存只在
         // 进度事件里更新，暂停/切歌/切后台后就 stale，歌词进度条会和
@@ -252,7 +277,9 @@ class LyricManager implements IInjectable {
             musicItem.title,
             musicItem.artist,
             currentLine,
+            currentLineTrans,
             nextLine,
+            nextLineTrans,
             startedAtMs,
             durationSec,
             this.lastPlaybackPlaying,

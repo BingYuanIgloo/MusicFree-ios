@@ -34,7 +34,9 @@ public class ReactNativeWidgetExtensionModule: Module {
                 title: String,
                 artist: String,
                 currentLine: String,
+                currentLineTrans: String,
                 nextLine: String,
+                nextLineTrans: String,
                 startedAtMs: Double,
                 durationSec: Double,
                 isPlaying: Bool
@@ -47,7 +49,9 @@ public class ReactNativeWidgetExtensionModule: Module {
                 )
                 let contentState = LyricsLiveActivityAttributes.ContentState(
                     currentLine: currentLine,
+                    currentLineTrans: currentLineTrans,
                     nextLine: nextLine,
+                    nextLineTrans: nextLineTrans,
                     startedAt: startedAt,
                     duration: max(durationSec, 0),
                     isPlaying: isPlaying
@@ -95,7 +99,9 @@ public class ReactNativeWidgetExtensionModule: Module {
         Function("updateActivity") {
             (
                 currentLine: String,
+                currentLineTrans: String,
                 nextLine: String,
+                nextLineTrans: String,
                 startedAtMs: Double,
                 durationSec: Double,
                 isPlaying: Bool
@@ -104,7 +110,9 @@ public class ReactNativeWidgetExtensionModule: Module {
                 let startedAt = Date(timeIntervalSince1970: startedAtMs / 1000)
                 let contentState = LyricsLiveActivityAttributes.ContentState(
                     currentLine: currentLine,
+                    currentLineTrans: currentLineTrans,
                     nextLine: nextLine,
+                    nextLineTrans: nextLineTrans,
                     startedAt: startedAt,
                     duration: max(durationSec, 0),
                     isPlaying: isPlaying

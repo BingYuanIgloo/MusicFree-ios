@@ -39,7 +39,7 @@ export default function SimpleSelect(props: ISimpleSelectProps) {
                     <ScrollView
                         style={[
                             styles.body,
-                            { marginBottom: safeAreaInsets.bottom },
+                            { marginBottom: 0 },
                         ]}>
                         {candidates.map((it, index) => {
                             return (

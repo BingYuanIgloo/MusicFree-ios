@@ -14,6 +14,7 @@ import LinkText from "@/components/base/linkText";
 import useCheckUpdate from "@/hooks/useCheckUpdate.ts";
 import useOrientation from "@/hooks/useOrientation";
 import Divider from "@/components/base/divider";
+import { showPanel } from "@/components/panels/usePanel";
 
 export default function AboutSetting() {
     const checkAndShowResult = useCheckUpdate();
@@ -70,6 +71,16 @@ export default function AboutSetting() {
             <ScrollView
                 contentContainerStyle={style.scrollViewContainer}
                 style={style.scrollView}>
+                <TouchableOpacity
+                    onPress={() => showPanel("AppDiagnostics")}
+                    style={{ marginVertical: rpx(16) }}>
+                    <ThemeText fontWeight="bold">诊断日志 / 图层检查 →</ThemeText>
+                    <ThemeText style={style.content}>
+                        看实时日志（错误标红）、一键复制；图层页从底到顶列出每一层，
+                        点按检测点哪都告诉你是哪一层，黑条灰条在哪一层一眼看到。
+                    </ThemeText>
+                </TouchableOpacity>
+                <Divider style={style.content} />
                 <ThemeText fontSize="title">开发者的话: </ThemeText>
                 <ThemeText style={style.content}>
                     软件作者是<ThemeText fontWeight="bold">猫头猫</ThemeText>

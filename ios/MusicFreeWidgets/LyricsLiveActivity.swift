@@ -22,22 +22,27 @@ struct LyricsLiveActivity: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: LyricsLiveActivityAttributes.self) { context in
             // MARK: - 锁屏横幅
+            // 排版：歌名 - 歌手一行大字；当前句 20pt 白；翻译 14pt 同色；
+            // 下一句 13pt 灰；下一句翻译 11pt 灰；按钮居中。
             VStack(alignment: .leading, spacing: 4) {
-                HStack {
-                    Text(context.attributes.title)
-                        .font(.system(size: 14, weight: .bold))
-                        .lineLimit(1)
-                    Text(context.attributes.artist)
-                        .font(.system(size: 12))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
+                Text("\(context.attributes.title) - \(context.attributes.artist)")
+                    .font(.system(size: 16, weight: .bold))
+                    .lineLimit(1)
                 Text(context.state.currentLine)
-                    .font(.system(size: 18, weight: .semibold))
+                    .font(.system(size: 20, weight: .semibold))
                     .lineLimit(2)
+                Text(context.state.currentLineTrans)
+                    .font(.system(size: 14))
+                    .lineLimit(1)
                 Text(context.state.nextLine)
                     .font(.system(size: 13))
                     .foregroundStyle(.secondary)
+                    .opacity(0.75)
+                    .lineLimit(1)
+                Text(context.state.nextLineTrans)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                    .opacity(0.65)
                     .lineLimit(1)
                 ProgressView(
                     timerInterval: context.state.startedAt...progressEnd(
@@ -72,15 +77,9 @@ struct LyricsLiveActivity: Widget {
         } dynamicIsland: { context in
             DynamicIsland {
                 DynamicIslandExpandedRegion(.leading) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(context.attributes.title)
-                            .font(.system(size: 14, weight: .bold))
-                            .lineLimit(1)
-                        Text(context.attributes.artist)
-                            .font(.system(size: 12))
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                    }
+                    Text("\(context.attributes.title) - \(context.attributes.artist)")
+                        .font(.system(size: 17, weight: .bold))
+                        .lineLimit(1)
                 }
                 DynamicIslandExpandedRegion(.trailing) {
                     Image(systemName: "music.note")
@@ -89,11 +88,20 @@ struct LyricsLiveActivity: Widget {
                 DynamicIslandExpandedRegion(.bottom) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(context.state.currentLine)
-                            .font(.system(size: 16, weight: .semibold))
+                            .font(.system(size: 20, weight: .semibold))
                             .lineLimit(2)
+                        Text(context.state.currentLineTrans)
+                            .font(.system(size: 14))
+                            .lineLimit(1)
                         Text(context.state.nextLine)
-                            .font(.system(size: 12))
+                            .font(.system(size: 13))
                             .foregroundStyle(.secondary)
+                            .opacity(0.75)
+                            .lineLimit(1)
+                        Text(context.state.nextLineTrans)
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+                            .opacity(0.65)
                             .lineLimit(1)
                 // 播放控制：上一首 / 播放暂停 / 下一首。点按经 URL Scheme
                 // 回主 App（见 liveActivityLinking.ts），不直接操作音频。
@@ -140,7 +148,9 @@ struct LyricsLiveActivityPreviews: PreviewProvider {
         title: "晴天", artist: "周杰伦")
     static let contentState = LyricsLiveActivityAttributes.ContentState(
         currentLine: "故事的小黄花 从出生那年就飘着",
+        currentLineTrans: "",
         nextLine: "童年的荡秋千 随记忆一直晃到现在",
+        nextLineTrans: "",
         startedAt: Date(), duration: 269, isPlaying: true)
 
     static var previews: some View {

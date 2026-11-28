@@ -1,4 +1,5 @@
 import Config from "@/core/appConfig";
+import { Appearance } from "react-native";
 
 import { DarkTheme as _DarkTheme, DefaultTheme as _DefaultTheme } from "@react-navigation/native";
 import { GlobalState } from "@/utils/stateMapper";
@@ -89,6 +90,22 @@ function setup() {
                 darkTheme.colors,
         });
     }
+
+    // 跟随系统：系统深浅色一切换就跟着变（之前只在开关打开那一刻
+    // 读一次 Appearance.getColorScheme()，之后切系统深浅色 App 不动）。
+    const applySystemScheme = () => {
+        if (!Config.getConfig("theme.followSystem")) {
+            return;
+        }
+        const scheme = Appearance.getColorScheme();
+        if (scheme === "dark") {
+            setTheme("p-dark");
+        } else if (scheme === "light") {
+            setTheme("p-light");
+        }
+    };
+    applySystemScheme();
+    Appearance.addChangeListener(() => applySystemScheme());
 
     const bgUrl = Config.getConfig("theme.background");
     const bgBlur = Config.getConfig("theme.backgroundBlur");

@@ -33,7 +33,7 @@ export default function PlayRate(props: IPlayRateProps) {
                     <ScrollView
                         style={[
                             style.body,
-                            { marginBottom: safeAreaInsets.bottom },
+                            { marginBottom: 0 },
                         ]}>
                         {rates.map(key => {
                             return (
