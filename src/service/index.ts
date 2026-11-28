@@ -66,6 +66,11 @@ module.exports = async function () {
     // 行没变就不推，省更新预算。
     const headlessLyricStore = getOrCreateMMKV("lyric.liveActivity");
     let lastHeadlessLyricLine = "";
+    // 上次成功推岛的时间。歌词行很久不变（前奏/间奏长）时也要定期
+    // 推一次，只为把活动的过期时间往后推，不然 2 分钟无更新活动
+    // 就过期，灵动岛会把岛收掉，只剩锁屏横幅。
+    let lastHeadlessPushTime = 0;
+    const HEADLESS_HEARTBEAT_MS = 45000;
     const headlessSyncLyric = (position: number, duration: number) => {
         try {
             const raw = headlessLyricStore.getString("current");
@@ -99,10 +104,15 @@ module.exports = async function () {
                 }
             }
             const line = current.lrc ?? "";
-            if (!line || line === lastHeadlessLyricLine) {
+            const now = Date.now();
+            const lineChanged = !!line && line !== lastHeadlessLyricLine;
+            const heartbeatDue =
+                now - lastHeadlessPushTime >= HEADLESS_HEARTBEAT_MS;
+            if (!line || (!lineChanged && !heartbeatDue)) {
                 return;
             }
             lastHeadlessLyricLine = line;
+            lastHeadlessPushTime = now;
             const idx = items.indexOf(current);
             const next = items[idx + 1]?.lrc ?? "";
             // 走 start：原生侧已有活动就更新，没有就新建，
@@ -120,6 +130,15 @@ module.exports = async function () {
             // 解析失败就跳过，不影响播放。
         }
     };
+
+    // 切歌：后台也立即收掉旧歌的岛、清掉行记录，不然新歌还没取到
+    // 歌词之前，后台会拿着旧歌的 items 按新歌进度继续推，歌词和
+    // 进度条都跟着上一首走；切到无歌词的源时旧歌词也会赖着不走。
+    RNTrackPlayer.addEventListener(Event.PlaybackActiveTrackChanged, () => {
+        lastHeadlessLyricLine = "";
+        lastHeadlessPushTime = 0;
+        endLyricsLiveActivity();
+    });
 
     RNTrackPlayer.addEventListener(Event.PlaybackProgressUpdated, evt => {
         PersistStatus.set("music.progress", evt.position);

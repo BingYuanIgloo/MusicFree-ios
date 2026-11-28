@@ -165,8 +165,13 @@ export default function (props: IPanelBaseProps) {
                     height: vh(100) - safeAreaInsets.top,
                     bottom: 0,
                 } : {
-                    top: positionMethod === "top" ? (Dimensions.get("window").height + safeAreaInsets.top) - height - safeAreaInsets.bottom : undefined,
-                    bottom: positionMethod === "bottom" ? 0 : undefined,
+                    // 底部弹层直接按窗口高度算 top，让面板底边贴着屏幕
+                    // 底边，不依赖父容器的 bottom: 0。父容器若被安全区
+                    // 或迷你播放条垫高，bottom: 0 会让面板悬在半空，
+                    // 底下露出被遮罩变暗的页面（“列表放到了屏幕中间”、
+                    // 横向黑条）。
+                    top: positionMethod === "top" ? (Dimensions.get("window").height + safeAreaInsets.top) - height - safeAreaInsets.bottom : Dimensions.get("window").height - height,
+                    bottom: undefined,
                     height: height,
                 },
                 {

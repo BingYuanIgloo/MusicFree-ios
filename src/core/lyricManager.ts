@@ -368,6 +368,15 @@ class LyricManager implements IInjectable {
             hasTranslation: false,
         });
         getDefaultStore().set(currentLyricItemAtom, null);
+        // 切歌瞬间就清掉后台同步用的歌词数据：不然 headless service
+        // 在新歌词还没取回来之前，会拿着旧歌的 items 按新歌的进度
+        // 继续推灵动岛，歌词进度条就跟着上一首走、切到无歌词的源
+        // 时旧歌词也赖着不走。
+        try {
+            liveActivityLyricStore.delete("current");
+        } catch {
+            // 清不掉也不影响主流程
+        }
     }
 
     private setLyricAsNoLyricState() {
