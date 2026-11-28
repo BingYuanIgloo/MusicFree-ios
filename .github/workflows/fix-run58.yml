@@ -1,0 +1,22 @@
+name: Fix run58 (one-off)
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: master
+          fetch-depth: 0
+      - name: Apply run58 fixes
+        run: python3 .github/scripts/fix-run58.py .
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --quiet || git commit -m "run58 fix: #56 feedback bundle - follow-system theme, light/dark splash, remove iOS bottom safe area, panel KeyboardAvoidingView fix, lyric layout (title-artist one line, current big, trans small, next smaller), lyric freeze 5s poll, end island on paused-at-end, download picker-first, backup resume robust, diagnostics window + layer inspector, musicBar floating capsule"
+          git push origin master
