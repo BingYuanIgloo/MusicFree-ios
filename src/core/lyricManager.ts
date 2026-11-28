@@ -3,7 +3,8 @@ import { ITrackPlayer } from "@/types/core/trackPlayer";
 import { IInjectable } from "@/types/infra";
 import LyricParser, { IParsedLrcItem } from "@/utils/lrcParser";
 import { getMediaExtraProperty, patchMediaExtra } from "@/utils/mediaExtra";
-import { isSameMediaItem } from "@/utils/mediaUtils";
+import { getMediaUniqueKey, isSameMediaItem } from "@/utils/mediaUtils";
+import getOrCreateMMKV from "@/utils/getOrCreateMMKV";
 import minDistance from "@/utils/minDistance";
 import { atom, getDefaultStore, useAtomValue } from "jotai";
 import { Plugin } from "./pluginManager";
@@ -38,6 +39,58 @@ const defaultLyricState = {
 
 const lyricStateAtom = atom<ILyricState>(defaultLyricState);
 const currentLyricItemAtom = atom<IParsedLrcItem | null>(null);
+
+// 歌词兜底缓存：某首歌一旦成功加载过歌词，就把 rawLrc + 翻译
+// 持久化在这里（MMKV，key 是 platform@id）。以后插件偶尔取不到
+// 歌词时，用这个兜底顶上，不让已经显示过的歌词凭空消失。
+const fallbackLyricStore = getOrCreateMMKV("lyric.fallbackCache");
+
+function loadFallbackLyric(
+    musicItem: IMusic.IMusicItem,
+): ILyric.ILyricSource | null {
+    try {
+        const raw = fallbackLyricStore.getString(
+            getMediaUniqueKey(musicItem),
+        );
+        if (!raw) {
+            return null;
+        }
+        const parsed = JSON.parse(raw) as {
+            rawLrc?: string;
+            translation?: string;
+        };
+        if (!parsed.rawLrc && !parsed.translation) {
+            return null;
+        }
+        return {
+            rawLrc: parsed.rawLrc,
+            translation: parsed.translation,
+        };
+    } catch {
+        return null;
+    }
+}
+
+function saveFallbackLyric(
+    musicItem: IMusic.IMusicItem,
+    rawLrc?: string | null,
+    translation?: string | null,
+): void {
+    try {
+        if (!rawLrc && !translation) {
+            return;
+        }
+        fallbackLyricStore.set(
+            getMediaUniqueKey(musicItem),
+            JSON.stringify({
+                rawLrc: rawLrc ?? null,
+                translation: translation ?? null,
+            }),
+        );
+    } catch {
+        // 兜底缓存写失败不影响歌词显示。
+    }
+}
 
 
 class LyricManager implements IInjectable {
@@ -341,11 +394,27 @@ class LyricManager implements IInjectable {
                 return;
             }
 
-            // 如果源不存在，恢复默认设置
+            // 如果源不存在，先试试兜底：这首歌上次成功加载过的歌词。
+            // 插件偶尔取不到歌词时，不要把已经显示过的歌词清掉；
+            // 只有兜底也没有时，才恢复成无歌词状态。
             if (!lrcSource) {
-                this.setLyricAsNoLyricState();
-                this.lyricParser = null;
-                return;
+                const fallback = loadFallbackLyric(currentMusicItem);
+                if (fallback) {
+                    lrcSource = fallback;
+                } else if (
+                    this.lyricParser &&
+                    this.trackPlayer.isCurrentMusic(
+                        this.lyricParser.musicItem,
+                    ) &&
+                    this.lyricParser.getLyricItems().length > 0
+                ) {
+                    // 内存里还有这首歌的好歌词（强制重取失败时），留着继续显示。
+                    return;
+                } else {
+                    this.setLyricAsNoLyricState();
+                    this.lyricParser = null;
+                    return;
+                }
             }
 
             this.lyricParser = new LyricParser(lrcSource.rawLrc!, {
@@ -363,6 +432,14 @@ class LyricManager implements IInjectable {
                 hasTranslation: !!lrcSource.translation,
                 meta: this.lyricParser.getMeta(),
             });
+
+            // 记下来：这首歌的歌词成功加载过。以后插件取不到时，
+            // 用这个兜底顶上，不让歌词凭空消失。
+            saveFallbackLyric(
+                currentMusicItem,
+                lrcSource.rawLrc,
+                lrcSource.translation,
+            );
 
             const currentLyric = ignoreProgress ? (this.lyricParser.getLyricItems()?.[0] ?? null) : this.lyricParser.getPosition((await this.trackPlayer.getProgress()).position);
             getDefaultStore().set(currentLyricItemAtom, currentLyric || null);
