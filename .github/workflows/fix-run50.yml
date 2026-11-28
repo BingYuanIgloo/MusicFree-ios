@@ -1,0 +1,22 @@
+name: Fix run50 (one-off)
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: master
+          fetch-depth: 0
+      - name: Apply run50 fixes
+        run: python3 .github/scripts/fix-run50.py .
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --quiet || git commit -m "run50 fixes: lyric progress sync, end on pause/stop, foreground re-sync, light detail background"
+          git push origin master
